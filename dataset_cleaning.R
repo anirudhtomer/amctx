@@ -7,6 +7,10 @@ registerDoParallel(cores = 8)
 ##############################################
 amctx = read.csv2(file.choose(), header = T)
 apply(amctx, MARGIN = 2, FUN= function(x){any(is.na(x))})
+
+#remove subject 346 because according to the data the number of subjects per response is 
+#log(pcr) = 238, log(creatinine) = 239. So they gotta be equal for the analysis
+
 amctx = amctx[amctx$amctx!=346, ]
 
 ##############################################
@@ -19,13 +23,14 @@ amctx$amctx = as.factor(amctx$amctx)
 
 amctx$years_tx_gl = amctx$days_tx_gl/365
 amctx$tx_s_years = amctx$tx_s_days/365
-amctx$tx_hla = factor(amctx$tx_hla, ordered = T)
+
+#We have been asked to make tx_hla as continuous
+#amctx$tx_hla = factor(amctx$tx_hla, ordered = T)
 
 #############
 # Subject 316 has negative rec_bmi. make it positive
 ###############
 amctx[amctx$amctx == 316, "rec_bmi"] = abs(amctx[amctx$amctx == 316, "rec_bmi"])
-
 
 ##############################################
 # create a data set for survival analysis. 
@@ -41,13 +46,6 @@ amctx.id = amctx[first_row_index_eachsub,-c(2,3,4,5,6, 48)]
 amctx$rec_age_fwp1 = rep(amctx.id$rec_age, table(amctx$amctx))
 
 ##############################################
-# Round two of cleaning for ease of reading.
-##############################################
-amctx$gl_loss = factor(amctx$gl_loss, labels = c("no", "yes"))
-amctx$gl_death = factor(amctx$gl_death, labels = c("no", "yes"))
-amctx$gl_failure = factor(amctx$gl_failure, labels = c("no", "yes"))
-
-##############################################
 # Create two data sets, each for pcr and creatinine
 ##############################################
 amctx_pcr = amctx[amctx$measure=="pcr",]
@@ -60,7 +58,7 @@ amctx_creatinine$visit_num = factor(unlist(sapply(table(amctx_creatinine$amctx),
 ##############################################
 # For certain subjects such as subject 3, 
 # there are multiple measurements of same type at same time
-# Removing such measurements
+# Checking if they exist for PCR
 #############################################
 idList = unique(amctx_pcr$amctx)
 pcr_rep=foreach(i=1:length(idList),.combine='c') %dopar%{

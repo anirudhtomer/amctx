@@ -150,3 +150,28 @@ model_creatinine = lme(data=amctx_creatinine, fixed=log(value)~rec_age_fwp1 + re
                            random = ~ns(tx_s_years,knots=c(100, 300)/365)|amctx,
                            control = lmeControl(opt = "optim"))
 
+# ah_ace + ah_arb = ah_raasi, perhaps it’s better to not include all three in the model. 
+# Preferably no medication use is included, since they have not been collected in a dynamic way 
+# (just baseline) and without doses. 
+# tx_hla can be modelled as a continuous parameter
+# (hessel: maybe not statistically correct, but this is often done also to reduce parameters and error)  
+
+model_creatinine_feedback1 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age_fwp1 + rec_gender +
+                         d_age +  tx_dgf + d_bmi + tx_hla + tx_previoustx + 
+                         tx_pra + tx_cit + tx_dial_days + tx_dm + rec_bmi + 
+                         ns(tx_s_years,knots=c(100, 300, 1000)/365),
+                       random = ~ns(tx_s_years,knots=c(100, 300)/365)|amctx,
+                       control = lmeControl(opt = "optim"), method="ML")
+
+model_creatinine_feedback3 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age_fwp1 + rec_gender +
+                                   d_age +  tx_dgf + d_bmi + tx_hla + tx_previoustx + 
+                                   tx_pra + tx_cit + tx_dial_days + tx_dm + rec_bmi + 
+                                   ns(tx_s_years,knots=c(100, 300, 1000)/365) * d_cadaveric,
+                                 random = ~ns(tx_s_years,knots=c(100, 300)/365)|amctx,
+                                 control = lmeControl(opt = "optim"), method="ML")
+
+amctx_creatinine$fitted = model_creatinine_feedback2$fitted[,2]
+amctx_creatinine$residual = model_creatinine_feedback2$residual[,2]
+
+jmbayes_creatinine_orig = jointModelBayes(lmeObject = model_creatinine, survObject = coxModel, timeVar = "tx_s_years", control = list(n.iter=1000))
+

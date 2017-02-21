@@ -5,17 +5,20 @@ for(id in idList){
   ND = amctx_creatinine[amctx_creatinine$amctx==id,]
   futureTimes = seq(max(ND$tx_s_years), (max(ND$tx_s_years) + 3), 0.1)
   
-  #sfit.patient2 = survfitJM(jointfit_creatinine_tdboth_nomv, ND, idVar="amctx", survTimes = futureTimes)
-  #plot(sfit.patient2, estimator="mean", include.y=T, conf.int=T, fill.area=T, col.area="lightgrey", main=paste("amctx =",id))
+  # sfit.patient2 = survfitJM(jmbayes_creatinine, ND, idVar="amctx", survTimes = futureTimes)
+  # plot(sfit.patient2, estimator="mean", include.y=T, conf.int=T, fill.area=T, col.area="lightgrey", main=paste("amctx =",id))
   #Sys.sleep(2)
   
-  longprof = predict(jointfit_creatinine_tdboth_nomv, ND, type = "Subject",
+  longprof = predict(jmbayes_creatinine, ND, type = "Subject",
           interval = "confidence", return = TRUE, idVar="amctx", FtTimes = futureTimes)
   last.time <- with(longprof, tx_s_years[!is.na(low)][1])
-  lattice::xyplot(pred + low + upp ~ tx_s_years, data = longprof, type = "l", 
+  lattice::xyplot(pred + low + upp ~ tx_s_years, data = longprof, type = "l",
                   lty = c(1, 2, 2), col = c(2, 1, 1), abline = list(v = last.time, lty = 3),
             xlab = "Time (years)", ylab = "Predicted log(serum creatinine)", main=paste("amctx =",id))
 }
+
+rocJM(jmbayes_creatinine, dt = c(1, 2, 4), data = plcbData,
+      M = 1000, burn.in = 500)
 
 #######################################################################
 # the following function creates the predicted values
@@ -51,11 +54,11 @@ newDF <- with(amctx, expand.grid(tx_s_years = seq(0, 15, length.out = 30),
                                 tx_cit = median(amctx.id$tx_cit),
                                 tx_pra = median(amctx.id$tx_pra),
                                 tx_dm = "no", tx_previoustx = "no",
-                                tx_hla = "6", is_cni = "yes", tx_dgf = "no"))
+                                tx_hla = 3, tx_dgf = "no", d_type="HBD", amctx = "100"))
 
 # the effects plot
 xyplot(pred + low + upp ~ tx_s_years | rec_gender, 
-       data = effectPlotData(model_creatinine, newDF, amctx), 
+       data = effectPlotData(model_pcr, newDF, amctx), 
        lty = c(1, 2, 2), col = c(2, 1, 1), lwd = 2, type = "l",
        xlab = "Follow-up time (years)",
-       ylab = "log (serum creatinine)")
+       ylab = "log (pcr)")

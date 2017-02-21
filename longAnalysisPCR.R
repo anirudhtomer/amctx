@@ -169,3 +169,24 @@ model_pcr = lme(data=amctx_pcr, fixed=log(value)~d_age + ah_ace + ah_arb +
                 random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx,
                 control = lmeControl(opt = "optim"))
 anova.lme(model_pcr, type = "marginal", adjustSigma = F)
+
+
+# ah_ace + ah_arb = ah_raasi, perhaps it’s better to not include all three in the model. 
+# Preferably no medication use is included, since they have not been collected in a dynamic way 
+# (just baseline) and without doses. 
+# tx_hla can be modelled as a continuous parameter
+# (hessel: maybe not statistically correct, but this is often done also to reduce parameters and error)  
+model_pcr_feedback1 = lme(data=amctx_pcr, fixed=log(value)~d_age + rec_bmi + d_type + d_bmi + tx_cit+ 
+                  tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
+                  tx_dm + tx_pra + 
+                  ns(tx_s_years,knots=c(100, 200, 350)/365),
+                random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx,
+                control = lmeControl(opt = "optim"), method="ML")
+
+model_pcr_feedback2 = lme(data=amctx_pcr, fixed=log(value)~d_age + rec_bmi  + d_bmi + tx_cit+ 
+                            tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
+                            tx_dm + tx_pra + 
+                            ns(tx_s_years,knots=c(100, 200, 350)/365) * d_cadaveric,
+                          random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx,
+                          control = lmeControl(opt = "optim"), method="ML")
+

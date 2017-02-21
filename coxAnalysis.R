@@ -84,9 +84,23 @@ coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ d_age + tx_previoustx + rec_bmi
 
 plot(survfit(Surv(years_tx_gl, gl_failure)~1, data=amctx.id))
 
+#Further feedback came back from Clinicians.
+# Some considerations to leave out covariates on the basis of knowledge:
+#   - DGF can be left out, is not a risk factor for graft failure 
+# (at least it could only be a risk factor for very old recipients)
+# - HLA can be treated continous
+# - diuretics it could be left out as well to my opinion (Further preferably no medication use included in the model)
+# - I think donorage is a measure to predict the number of (working) nephrones in the kidney 
+# (higher age, less working nephrones), and this is resembled in 
+# the intercept of log(creat) at t=0 of the receiver. 
+# Interesting to see that donorage is not significant anymore 
+# (while this is the most prominent predictor for graft failure in the literature).
+# Maybe they are to much correlated? As aformentioned, donorage could be left out.
 
-coxSnellRes=-log(amctx.id$gl_failure-resid(coxModel,type="martingale"))
-fitres=survfit(coxph(Surv(coxSnellRes,amctx.id$gl_failure)~1,method='breslow'),type='aalen')
-plot(fitres$time,-log(fitres$surv),type='s',xlab='Cox-Snell Residuals', 
-     ylab='Estimated Cumulative Hazard Function')
-abline(0,1,col='red',lty=2)
+coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ d_age + tx_previoustx + rec_bmi +
+                   d_type + 
+                   tx_hla +rec_age + tx_pra,
+                 data = amctx.id, x=T, model=T)
+
+coxModel_onlysig = coxph(Surv(years_tx_gl, gl_failure) ~ rec_bmi,
+                 data = amctx.id, x=T, model=T)
