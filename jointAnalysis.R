@@ -12,110 +12,105 @@ jointfit_creatinine_tdboth_nomv = update(jointfit_creatinine_nomv, param = "td-b
 ####################################################
 # Multivariate functionality
 ####################################################
-model_mv_creatinine=mvglmer(list(log(creatinine) ~ rec_age_fwp1 + rec_gender +
-                                   d_age +  tx_dgf + d_bmi + tx_hla + tx_previoustx + 
-                                   tx_pra + tx_cit + tx_dial_days + tx_dm + rec_bmi + 
-                                   ns(tx_s_years, knots=(c(100, 300, 1000)/365), Boundary.knots = c(0, 11)) + 
-                                   (ns(tx_s_years, knots=(c(100, 300)/365), Boundary.knots = c(0, 11))|amctx)),
+mvglmer_creatinine=mvglmer(list(log(creatinine) ~ rec_age_fwp1 + 
+                                   rec_gender + d_age + 
+                                   tx_pra + ah_nr + tx_dm + 
+                                   ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5)) * d_cadaveric + 
+                                   ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5)) * tx_dgf + 
+                                   (ns(tx_s_years, knots=c(50, 100)/365, Boundary.knots = c(0, 10.5))|amctx)),
                             data = amctx_merged, families = list(gaussian))
+save.image("feedbackmeeting.Rdata")
 
-save.image()
-
-jointFit_creatinine_tdval=mvJointModelBayes(model_mv_creatinine, coxModel, timeVar = "tx_s_years",
+mvJoint_creatinine_tdval=mvJointModelBayes(mvglmer_creatinine, coxModel, timeVar = "tx_s_years",
                                             priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
+
+save.image("feedbackmeeting.Rdata")
 
 forms_creatinine <- list("log(creatinine)" = "value",
-                         "log(creatinine)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 300, 1000)/365, Boundary.knots = c(0, 11)), 
-                                                  random = ~ 0 + dns(tx_s_years, knots = c(100, 300)/365, Boundary.knots = c(0, 11)), 
-                                                  indFixed = 14:17, indRandom = 2:4, 
+                         "log(creatinine)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5)) + 
+                                                    I(dns(tx_s_years, knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5))*(as.numeric(d_cadaveric)-1)) + 
+                                                    I(dns(tx_s_years, knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5))*(as.numeric(tx_dgf)-1)),
+                                                  random = ~ 0 + dns(tx_s_years, knots = c(50, 100)/365, Boundary.knots = c(0, 10.5)), 
+                                                  indFixed = c(8:11, 14:17, 18:21), indRandom = 2:4, 
                                                   name = "slope"))
 
-jointFit_creatinine_tdboth <- update(jointFit_creatinine_tdval, Formulas = forms_creatinine,
+mvJoint_creatinine_tdslope <- update(mvJoint_creatinine_tdval, Formulas = forms_creatinine,
                                      priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
 
-
+save.image("feedbackmeeting.Rdata")
 ##############################################
-model_mv_pcr=mvglmer(list(log(pcr) ~ d_age + rec_bmi + d_type + d_bmi + tx_cit+ 
-                            tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
-                            tx_dm + tx_pra + 
-                            ns(tx_s_years,knots=c(100, 200, 350)/365, Boundary.knots = c(0, 11)) + 
-                            (ns(tx_s_years, knots=(c(100, 200)/365), Boundary.knots = c(0, 11))|amctx)),
+mvglmer_pcr=mvglmer(list(log(pcr) ~ rec_gender + d_age + 
+                           ns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5)) * rec_gender + 
+                           ns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5)) * d_cadaveric + 
+                            (ns(tx_s_years, knots=c(50, 200)/365, Boundary.knots = c(0, 10.5))|amctx)),
                             data = amctx_merged, families = list(gaussian))
 
-save.image()
+save.image("feedbackmeeting.Rdata")
 
-jointFit_pcr_tdval=mvJointModelBayes(model_mv_pcr, coxModel, timeVar = "tx_s_years",
+mvJoint_pcr_tdval=mvJointModelBayes(mvglmer_pcr, coxModel, timeVar = "tx_s_years",
                                             priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
+save.image("feedbackmeeting.Rdata")
 
 forms_pcr <- list("log(pcr)" = "value",
-                  "log(pcr)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 200, 350)/365, Boundary.knots = c(0, 11)), 
-                                                  random = ~ 0 + dns(tx_s_years, knots = c(100, 200)/365, Boundary.knots = c(0, 11)), 
-                                                  indFixed = 15:18, indRandom = 2:4, 
+                  "log(pcr)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5)) + 
+                                      I(dns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5))*(as.numeric(rec_gender)-1)) + 
+                                      I(dns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5))*(as.numeric(d_cadaveric)-1)), 
+                                                  random = ~ 0 + dns(tx_s_years, knots = c(50, 200)/365, Boundary.knots = c(0, 10.5)), 
+                                                  indFixed = c(4:7, 9:12, 13:16), indRandom = 2:4, 
                                                   name = "slope"))
 
-jointFit_pcr_tdboth <- update(jointFit_pcr_tdval, Formulas = forms_pcr,
+mvJoint_pcr_tdslope <- update(mvJoint_pcr_tdval, Formulas = forms_pcr,
                                      priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
-
+save.image("feedbackmeeting.Rdata")
 
 # Both PCR and creatinine together
-model_pcr_creatinine=mvglmer(list(log(pcr) ~ d_age + rec_bmi + d_type + d_bmi + tx_cit+ 
-                                    tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
-                                    tx_dm + tx_pra + 
-                                    ns(tx_s_years,knots=c(100, 200, 350)/365, Boundary.knots = c(0, 11)) + 
-                                    (ns(tx_s_years, knots=(c(100, 200)/365), Boundary.knots = c(0, 11))|amctx),
+mvglmer_pcr_creatinine=mvglmer(list(log(pcr) ~ rec_gender + d_age + 
+                                    ns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5)) * rec_gender + 
+                                    ns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5)) * d_cadaveric + 
+                                    (ns(tx_s_years, knots=c(50, 200)/365, Boundary.knots = c(0, 10.5))|amctx),
                                   
-                                  log(creatinine) ~ rec_age_fwp1 + rec_gender +
-                                    d_age +  tx_dgf + d_bmi + tx_hla + tx_previoustx + 
-                                    tx_pra + tx_cit + tx_dial_days + tx_dm + rec_bmi + 
-                                    ns(tx_s_years, knots=(c(100, 300, 1000)/365), Boundary.knots = c(0, 11)) + 
-                                    (ns(tx_s_years, knots=(c(100, 300)/365), Boundary.knots = c(0, 11))|amctx)),
+                                  log(creatinine) ~ rec_age_fwp1 + 
+                                    rec_gender + d_age + 
+                                    tx_pra + ah_nr + tx_dm + 
+                                    ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5)) * d_cadaveric + 
+                                    ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5)) * tx_dgf + 
+                                    (ns(tx_s_years, knots=c(50, 100)/365, Boundary.knots = c(0, 10.5))|amctx)),
                              data = amctx_merged, families = list(gaussian, gaussian))
 
-jointFit_creatinine_pcr_tdval=mvJointModelBayes(model_pcr_creatinine, coxModel, timeVar = "tx_s_years",
+save.image("feedbackmeeting.Rdata")
+
+mvJoint_pcr_creatinine_tdval=mvJointModelBayes(mvglmer_pcr_creatinine, coxModel, timeVar = "tx_s_years",
                                                 priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
 
-forms_creatinine_pcr <- list("log(creatinine)" = "value",
-                             "log(creatinine)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 300, 1000)/365, Boundary.knots = c(0, 11)), 
-                                                      random = ~ 0 + dns(tx_s_years, knots = c(100, 300)/365, Boundary.knots = c(0, 11)), 
-                                                      indFixed = 14:17, indRandom = 2:4, 
+save.image("feedbackmeeting.Rdata")
+
+forms_pcr_creatinine <- list("log(creatinine)" = "value",
+                             "log(creatinine)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5)) + 
+                                                        I(dns(tx_s_years, knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5))*(as.numeric(d_cadaveric)-1)) + 
+                                                        I(dns(tx_s_years, knots=c(50, 100, 900)/365, Boundary.knots = c(0, 10.5))*(as.numeric(tx_dgf)-1)),
+                                                      random = ~ 0 + dns(tx_s_years, knots = c(50, 100)/365, Boundary.knots = c(0, 10.5)), 
+                                                      indFixed = c(8:11, 14:17, 18:21), indRandom = 2:4, 
                                                       name = "slope"),
                              "log(pcr)" = "value",
-                             "log(pcr)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 200, 350)/365, Boundary.knots = c(0, 11)), 
-                                               random = ~ 0 + dns(tx_s_years, knots = c(100, 200)/365, Boundary.knots = c(0, 11)), 
-                                               indFixed = 15:18, indRandom = 2:4, 
+                             "log(pcr)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5)) + 
+                                                 I(dns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5))*(as.numeric(rec_gender)-1)) + 
+                                                 I(dns(tx_s_years, knots=c(50, 200, 365)/365, Boundary.knots = c(0, 10.5))*(as.numeric(d_cadaveric)-1)), 
+                                               random = ~ 0 + dns(tx_s_years, knots = c(50, 200)/365, Boundary.knots = c(0, 10.5)), 
+                                               indFixed = c(4:7, 9:12, 13:16), indRandom = 2:4, 
                                                name = "slope"))
-
-jointFit_creatinine_pcr_tdboth_onlysig=mvJointModelBayes(model_pcr_creatinine, coxModel_onlysig, Formulas = forms_creatinine_pcr,
-                                                         timeVar = "tx_s_years",
-                                                         priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
+save.image("feedbackmeeting.Rdata")
 
 
-jointFit_creatinine_pcr_tdboth <- update(jointFit_creatinine_pcr_tdval, Formulas = forms_creatinine_pcr,
+mvJoint_pcr_creatinine_tdboth <- update(mvJoint_pcr_creatinine_tdval, Formulas = forms_pcr_creatinine,
                                          priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
 
-
-jointFit_creatinine_pcr_tdval_noridge=mvJointModelBayes(model_pcr_creatinine, coxModel, timeVar = "tx_s_years")
-
-forms_creatinine_pcr <- list("log(creatinine)" = "value",
-                             "log(creatinine)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 300, 1000)/365, Boundary.knots = c(0, 11)), 
-                                                      random = ~ 0 + dns(tx_s_years, knots = c(100, 300)/365, Boundary.knots = c(0, 11)), indFixed = 20:23, indRandom = 2:4, 
-                                                      name = "slope"),
-                             "log(pcr)" = "value",
-                             "log(pcr)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 200, 350)/365, Boundary.knots = c(0, 11)), 
-                                               random = ~ 0 + dns(tx_s_years, knots = c(100, 200)/365, Boundary.knots = c(0, 11)), indFixed = 20:23, indRandom = 2:4, 
-                                               name = "slope"))
-jointFit_creatinine_pcr_tdboth_noridge <- update(jointFit_creatinine_pcr_tdval_noridge, Formulas = forms_creatinine_pcr)
-                                         
+mvJoint_pcr_creatinine_tdboth <- update(mvJoint_pcr_creatinine_tdval, 
+                                        coxphObject = coxModel,
+                                        Formulas = forms_pcr_creatinine,
+                                        priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
 
 
-
-forms_creatinine_pcr_2 <- list("log(creatinine)" = "value",
-                             "log(creatinine)" = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 300, 1000)/365, Boundary.knots = c(0, 11)), 
-                                                      random = ~ 0 + dns(tx_s_years, knots = c(100, 300)/365, Boundary.knots = c(0, 11)), indFixed = 20:23, indRandom = 2:4, 
-                                                      name = "slope"),
-                             "log(pcr)" = "value")
-jointFit_creatinine_pcr_tdboth_2 <- update(jointFit_creatinine_pcr_tdval, Formulas = forms_creatinine_pcr_2,
-                                         priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
+save.image("feedbackmeeting.Rdata")
 
 
 qplot(y=residuals(longModel, type = "response"), x=fitted(longModel), geom=c("point", "smooth"))

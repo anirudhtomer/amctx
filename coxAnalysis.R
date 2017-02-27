@@ -15,39 +15,39 @@ colsOfInterest = c("rec_age", "rec_gender",
 # avoid as they have almost empty categories: is_pred is_aza is_mtor is_cni statin
 # avoid as they have almost empty categories in 2x2 table against failure: dm_oad is_mmf ah_arb ah_ace 
 
-zeroVar = c("statin", "is_pred", "is_mtor")
-#What to do with ah_nr(1 col with 0), dm_insulin(infinite beta for no reason), d_cadaveric(singular)
+
+kmfit = survfit(Surv(years_tx_gl, gl_failure)~I(rec_age < median(rec_age)), conf.type="log-log", data=amctx.id)
+survminer::ggsurvplot(kmfit, risk.table = T,break.time.by = 1, 
+                      xlab = "Time(years)", ylim = c(0.5,1), 
+                      conf.int = T)
 
 modelNull = coxph(Surv(days_tx_gl, gl_failure) ~ 1,
                   data = amctx.id)
 
-modelAll = coxph(Surv(days_tx_gl, gl_failure) ~ rec_age  + rec_gender +
-                 tx_previoustx + d_age + d_gender + d_bmi +
-                 rec_bmi + tx_hla + tx_pra + tx_dgf + 
-                 tx_cit+ is_nr  +  
-                 ah_diur +   
-                 ah_raasi + ah_bb + ah_ccb  + 
-                dm_insulin + tx_dm + tx_hvdis + 
-                 rr_sys + rr_dias + rr_map + 
-                 tx_dial_days + d_type,
+cox_All = coxph(Surv(days_tx_gl, gl_failure) ~ rec_age + 
+                   rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                   tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                   rr_sys + rr_dias +
+                   rr_map + tx_dial_days + d_cadaveric,
                data = amctx.id, x=T, model=T)
 
 colnames(model.matrix(model1))
 
 #All 3 lead to the same conclusion
-backward_elim = stepAIC(modelAll, direction = "backward")
-forward_selec = stepAIC(modelNull,direction="forward",scope=list(upper=modelAll,lower=modelNull))
-stepwise_selec = stepAIC(modelNull,direction="both",scope=list(upper=modelAll,lower=modelNull))
+backward_elim = stepAIC(cox_All, direction = "backward")
+forward_selec = stepAIC(modelNull,direction="forward",scope=list(upper=cox_All,lower=modelNull))
+stepwise_selec = stepAIC(modelNull,direction="both",scope=list(upper=cox_All,lower=modelNull))
 
 ###########################################################
 # Using glmnet
 ###########################################################
-cv.fit = cv.glmnet(model.matrix(modelAll), Surv(amctx.id$years_tx_gl, amctx.id$gl_failure), 
-                   family = "cox", alpha=1, nfolds = 10, lambda = exp(seq(from = -10, to = 4,by = 0.01)),
+cv.fit = cv.glmnet(model.matrix(cox_All), Surv(amctx.id$years_tx_gl, amctx.id$gl_failure), 
+                   family = "cox", alpha=1, nfolds = 10, lambda = exp(seq(from = -10, to = 8,by = 0.01)),
                    standardize = T)
 plot(cv.fit)
+cv.fit$lambda.min
 
-fit = glmnet(model.matrix(modelAll), Surv(amctx.id$years_tx_gl, amctx.id$gl_failure), 
+fit = glmnet(model.matrix(cox_All), Surv(amctx.id$years_tx_gl, amctx.id$gl_failure), 
              family = "cox", alpha=1, standardize = T)
 
 lasso_coef = coef(fit, s = cv.fit$lambda.min)
@@ -97,10 +97,8 @@ plot(survfit(Surv(years_tx_gl, gl_failure)~1, data=amctx.id))
 # (while this is the most prominent predictor for graft failure in the literature).
 # Maybe they are to much correlated? As aformentioned, donorage could be left out.
 
-coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ d_age + tx_previoustx + rec_bmi +
-                   d_type + 
-                   tx_hla +rec_age + tx_pra,
+coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ rec_age + 
+                   d_age + tx_previoustx + d_gender + 
+                   rec_bmi + tx_pra + I(tx_dial_days/365),
                  data = amctx.id, x=T, model=T)
-
-coxModel_onlysig = coxph(Surv(years_tx_gl, gl_failure) ~ rec_bmi,
-                 data = amctx.id, x=T, model=T)
+save.image("feedbackmeeting.Rdata")

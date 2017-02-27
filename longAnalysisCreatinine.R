@@ -3,8 +3,8 @@ library(JMbayes)
 library(nlme)
 library(splines)
 
-ticks = function(by){
-  scale_x_continuous(breaks = round(seq(0, max(amctx_creatinine$tx_s_days), by = by),0))
+ticks = function(from=0, to, by){
+  scale_x_continuous(breaks = seq(from, to, by = by))
 }
 
 #################################
@@ -17,9 +17,20 @@ ggplot(data=amctx_creatinine, aes(x=tx_s_days,y=value, group=amctx)) + geom_line
 
 ggplot(data=amctx_creatinine, aes(x=tx_s_days,y=value)) + geom_point() + stat_smooth() + ticks(200)
 
-ggplot(data=amctx_creatinine[1:5000,], aes(x=tx_s_years,y=log(value))) + 
-  geom_line(aes(group=amctx)) + stat_smooth() + ticks(1) + ylab("log(serum creatinine)") + 
-  xlab("tx_s_years")
+#For d_cadaveric or d_type difference evolution
+ggplot(data=amctx_creatinine, aes(x=tx_s_years,y=log(value))) + 
+  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 10, 0.5) + ylab("log(serum creatinine)") + 
+  xlab("tx_s_years") + facet_grid(.~d_cadaveric)
+
+#Tiny bit of difference for males and females in terms of where to put the knots
+ggplot(data=amctx_creatinine[amctx_creatinine$tx_s_years<=1,], aes(x=tx_s_years,y=log(value))) + 
+  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 1, 0.05) + ylab("log(serum creatinine)") + 
+  xlab("tx_s_years") + facet_grid(.~rec_gender)
+
+#Tiny bit of difference for males and females in terms of where to put the knots
+ggplot(data=amctx_creatinine, aes(x=tx_s_years,y=log(value))) + 
+  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 2, 0.5) + ylab("log(serum creatinine)") + 
+  xlab("tx_s_years") + facet_grid(.~tx_dgf) + xlim(0,2)
 
 idList = unique(amctx_creatinine$amctx)
 ggplot(data=amctx_creatinine[amctx$amctx==idList[1],], aes(x=tx_s_days,y=value)) + geom_line()
@@ -155,23 +166,24 @@ model_creatinine = lme(data=amctx_creatinine, fixed=log(value)~rec_age_fwp1 + re
 # (just baseline) and without doses. 
 # tx_hla can be modelled as a continuous parameter
 # (hessel: maybe not statistically correct, but this is often done also to reduce parameters and error)  
-
-model_creatinine_feedback1 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age_fwp1 + rec_gender +
-                         d_age +  tx_dgf + d_bmi + tx_hla + tx_previoustx + 
-                         tx_pra + tx_cit + tx_dial_days + tx_dm + rec_bmi + 
-                         ns(tx_s_years,knots=c(100, 300, 1000)/365),
-                       random = ~ns(tx_s_years,knots=c(100, 300)/365)|amctx,
-                       control = lmeControl(opt = "optim"), method="ML")
-
-model_creatinine_feedback3 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age_fwp1 + rec_gender +
-                                   d_age +  tx_dgf + d_bmi + tx_hla + tx_previoustx + 
-                                   tx_pra + tx_cit + tx_dial_days + tx_dm + rec_bmi + 
-                                   ns(tx_s_years,knots=c(100, 300, 1000)/365) * d_cadaveric,
-                                 random = ~ns(tx_s_years,knots=c(100, 300)/365)|amctx,
+# 30 to 60 days for people to change trend
+model_creatinine_feedback1 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age_fwp1 + 
+                                   rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                                   tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                                   rr_sys + rr_dias +
+                                   rr_map + tx_dial_days + d_cadaveric +
+                                   ns(tx_s_years,knots=c(50, 100, 900)/365) * d_cadaveric + 
+                                   ns(tx_s_years,knots=c(50, 100, 900)/365) * tx_dgf,
+                                 random = ~ns(tx_s_years,knots=c(50, 100)/365)|amctx,
                                  control = lmeControl(opt = "optim"), method="ML")
 
-amctx_creatinine$fitted = model_creatinine_feedback2$fitted[,2]
-amctx_creatinine$residual = model_creatinine_feedback2$residual[,2]
+#Despite the fact that BIC advises against interaction of time with tx_dgf, the graphs make it clear that such an interaction is possible
+lme_creatinine_feedback2 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age_fwp1 + 
+                                   rec_gender + d_age + 
+                                   tx_pra + ah_nr + tx_dm + 
+                                   ns(tx_s_years,knots=c(50, 100, 900)/365) * d_cadaveric + 
+                                   ns(tx_s_years,knots=c(50, 100, 900)/365) * tx_dgf,
+                                 random = ~ns(tx_s_years,knots=c(50, 100)/365)|amctx,
+                                 control = lmeControl(opt = "optim"), method="ML")
 
 jmbayes_creatinine_orig = jointModelBayes(lmeObject = model_creatinine, survObject = coxModel, timeVar = "tx_s_years", control = list(n.iter=1000))
-

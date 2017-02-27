@@ -21,6 +21,15 @@ amctx = amctx[amctx$amctx!=346, ]
 amctx$zis = NULL
 amctx$amctx = as.factor(amctx$amctx)
 
+#The cols not of interest are the ones with medicinal usage 
+colsOfInterest = c("amctx", "type", "measure", "value", "tx_s_days", "rec_age",
+                   "gl_failure", "days_tx_gl", "rec_gender", "tx_previoustx", 
+                   "d_age", "d_gender", "d_bmi", "rec_bmi", "tx_hla", "tx_pra",
+                   "tx_dgf", "tx_cit", "tx_dm", "tx_hvdis", "rr_sys", "rr_dias", 
+                   "rr_map", "ah_nr", "tx_dial_days", "d_type", "d_cadaveric")
+
+amctx = amctx[, colsOfInterest]
+
 amctx$years_tx_gl = amctx$days_tx_gl/365
 amctx$tx_s_years = amctx$tx_s_days/365
 
@@ -41,7 +50,7 @@ amctx[amctx$amctx == 316, "rec_bmi"] = abs(amctx[amctx$amctx == 316, "rec_bmi"])
 ##############################################
 amctx_cumsum = cumsum(table(amctx$amctx))
 first_row_index_eachsub = c(0,amctx_cumsum[-length(amctx_cumsum)]) + 1
-amctx.id = amctx[first_row_index_eachsub,-c(2,3,4,5,6, 48)]
+amctx.id = amctx[first_row_index_eachsub,]
 
 amctx$rec_age_fwp1 = rep(amctx.id$rec_age, table(amctx$amctx))
 
@@ -92,7 +101,15 @@ amctx_creatinine=foreach(i=1:length(idList),.combine='rbind') %dopar%{
   amctx_creatinine_i = amctx_creatinine[amctx_creatinine$amctx == idList[i],]
   
   freq_time = table(amctx_creatinine_i$tx_s_days)
-  amctx_creatinine_i[cumsum(freq_time) - freq_time + 1,]
+  
+  retObj = amctx_creatinine_i[cumsum(freq_time) - freq_time + 1,]
+  #Take the average of the observed creatinine
+  timesOfInterest = as.numeric(attributes(which(freq_time>1))$names)
+  for(time in timesOfInterest){
+    retObj$value[which(retObj$tx_s_days == time)] = mean(amctx_creatinine_i$value[which(amctx_creatinine_i$tx_s_days == time)])
+  }
+  
+  retObj
 }
 
 ##########################################

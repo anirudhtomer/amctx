@@ -4,18 +4,18 @@ library(nlme)
 library(splines)
 library(glmmLasso)
 
-ticks = function(by){
-  scale_x_continuous(breaks = round(seq(0, max(amctx_creatinine$tx_s_years), by = by),0))
-}
-
 #####################################################
 # Longitudinal analysis for PCR
 #####################################################
-ggplot(data=amctx_pcr, aes(x=tx_s_days,y=value)) + geom_point() + stat_smooth() + ticks(200) + 
-  ylim(0,250)
+#For d_cadaveric or d_type difference evolution
+ggplot(data=amctx_pcr, aes(x=tx_s_years,y=log(value))) + 
+  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 3, 0.05) + ylab("log(pcr)") + 
+  xlab("tx_s_years") + facet_grid(.~d_cadaveric) + xlim(0,3)
 
-ggplot(data=amctx_pcr[1:5000,], aes(x=tx_s_years,y=log(value))) + 
-  geom_line(aes(group=amctx)) + stat_smooth() + ticks(1) + ylab("log(pcr)") +xlab("tx_s_years")
+#For d_cadaveric or d_type difference evolution
+ggplot(data=amctx_pcr, aes(x=tx_s_years,y=log(value))) + 
+  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 5, 0.5) + ylab("log(pcr)") + 
+  xlab("tx_s_years") + facet_grid(.~factor(rec_gender)) + xlim(0,3)
 
 #Firsly log transform is better. 
 #Secondly I could see some striations on that plot at the bottom, which are marked now
@@ -176,17 +176,39 @@ anova.lme(model_pcr, type = "marginal", adjustSigma = F)
 # (just baseline) and without doses. 
 # tx_hla can be modelled as a continuous parameter
 # (hessel: maybe not statistically correct, but this is often done also to reduce parameters and error)  
-model_pcr_feedback1 = lme(data=amctx_pcr, fixed=log(value)~d_age + rec_bmi + d_type + d_bmi + tx_cit+ 
+model_pcr_feedback0 = lme(data=amctx_pcr, fixed=log(value)~d_age + rec_bmi + d_type + d_bmi + tx_cit+ 
                   tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
                   tx_dm + tx_pra + 
                   ns(tx_s_years,knots=c(100, 200, 350)/365),
                 random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx,
                 control = lmeControl(opt = "optim"), method="ML")
 
-model_pcr_feedback2 = lme(data=amctx_pcr, fixed=log(value)~d_age + rec_bmi  + d_bmi + tx_cit+ 
-                            tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
-                            tx_dm + tx_pra + 
-                            ns(tx_s_years,knots=c(100, 200, 350)/365) * d_cadaveric,
-                          random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx,
+model_pcr_feedback1 = lme(data=amctx_pcr, fixed=log(value)~rec_age_fwp1 + 
+                            rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                            tx_hla + tx_pra + tx_dgf + I(ah_nr>0) + tx_dm + tx_hvdis + 
+                            rr_sys + rr_dias +
+                            rr_map + tx_dial_days + 
+                            ns(tx_s_years,knots=c(50, 200, 365)/365),
+                          random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
                           control = lmeControl(opt = "optim"), method="ML")
+
+model_pcr_feedback2 = lme(data=amctx_pcr, fixed=log(value)~rec_age_fwp1 + 
+                            rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                            tx_hla + tx_pra + tx_dgf + I(ah_nr>0) + tx_dm + tx_hvdis + 
+                            rr_sys + rr_dias +
+                            rr_map + tx_dial_days + 
+                            ns(tx_s_years,knots=c(50, 200, 365)/365) * rec_gender + 
+                            ns(tx_s_years,knots=c(50, 200, 365)/365) * d_cadaveric,
+                          random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
+                          control = lmeControl(opt = "optim"), method="ML")
+
+model_pcr_feedback3 = lme(data=amctx_pcr, fixed=log(value)~ 
+                            rec_gender + d_age + 
+                            ns(tx_s_years,knots=c(50, 200, 365)/365) * rec_gender + 
+                            ns(tx_s_years,knots=c(50, 200, 365)/365) * d_cadaveric,
+                          random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
+                          control = lmeControl(opt = "optim"), method="ML")
+
+anova(model_pcr_feedback2, model_pcr_feedback3)
+anova(model_pcr_feedback1, model_pcr_feedback2)
 
