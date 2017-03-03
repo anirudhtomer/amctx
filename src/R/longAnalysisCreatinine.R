@@ -1,7 +1,4 @@
-library(ggplot2)
-library(JMbayes)
-library(nlme)
-library(splines)
+source("src/R/common.R")
 
 ticks = function(from=0, to, by){
   scale_x_continuous(breaks = seq(from, to, by = by))
@@ -178,7 +175,8 @@ model_creatinine_feedback1 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_a
                                  control = lmeControl(opt = "optim"), method="ML")
 
 #Despite the fact that BIC advises against interaction of time with tx_dgf, the graphs make it clear that such an interaction is possible
-lme_creatinine_feedback2 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age_fwp1 + 
+lme_creatinine_feedback2 = lme(data=amctx_merged[!is.na(amctx_merged$creatinine),], 
+                               fixed=log(creatinine) ~ rec_age_fwp1 + 
                                    rec_gender + d_age + 
                                    tx_pra + ah_nr + tx_dm + 
                                    ns(tx_s_years,knots=c(50, 100, 900)/365) * d_cadaveric + 
@@ -186,4 +184,5 @@ lme_creatinine_feedback2 = lme(data=amctx_creatinine, fixed=log(value) ~ rec_age
                                  random = ~ns(tx_s_years,knots=c(50, 100)/365)|amctx,
                                  control = lmeControl(opt = "optim"), method="ML")
 
-jmbayes_creatinine_orig = jointModelBayes(lmeObject = model_creatinine, survObject = coxModel, timeVar = "tx_s_years", control = list(n.iter=1000))
+jmbayes_creatinine_orig = jointModelBayes(lmeObject = lme_creatinine_feedback2, survObject = coxModel, timeVar = "tx_s_years", control = list(n.iter=1000))
+jmbayes_creatinine_replaced = replaceMCMCContents(mvJoint_creatinine_tdval, jmbayes_creatinine_orig)
