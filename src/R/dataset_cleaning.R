@@ -94,7 +94,8 @@ any(creatinine_rep)
 View(amctx_creatinine[amctx_creatinine$amctx %in% idList[creatinine_rep],])
 
 ##########################################
-# Choose only the first of the creatinine measurements which are multiple at the same time for a patient
+# Take the average of the creatinine measurements which are multiple 
+# at the same time for a patient
 ##########################################
 idList = unique(amctx_creatinine$amctx)
 amctx_creatinine=foreach(i=1:length(idList),.combine='rbind') %dopar%{

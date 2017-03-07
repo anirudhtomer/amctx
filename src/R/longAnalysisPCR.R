@@ -1,12 +1,13 @@
-library(ggplot2)
-library(JMbayes)
-library(nlme)
-library(splines)
-library(glmmLasso)
-
 #####################################################
 # Longitudinal analysis for PCR
 #####################################################
+
+# First check the trend overall
+ds = amctx_pcr[amctx_pcr$tx_s_days>0 & amctx_pcr$tx_s_days<=200,]
+ds$amctx = droplevels(ds$amctx)
+ggplot(data=ds, aes(x=tx_s_years,y=log(value))) + geom_line(aes(group=amctx)) + stat_smooth() + 
+  facet_grid(rec_gender~d_cadaveric, labeller = label_both)
+
 #For d_cadaveric or d_type difference evolution
 ggplot(data=amctx_pcr, aes(x=tx_s_years,y=log(value))) + 
   geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 3, 0.05) + ylab("log(pcr)") + 
@@ -26,164 +27,20 @@ ggplot(data=amctx_pcr, aes(x=tx_s_days,y=log(value), group=amctx, color=factor(l
   geom_abline(intercept = log(4), slope=0) +
   geom_abline(intercept = log(5), slope=0) 
 
-#What if I add a bit of noise to get rid of striations
-noise = rnorm(sum(log(amctx_pcr$value) <= 2.5), mean = 0.5, sd = 0.2)
-range(exp(noise))
-amctx_pcr$noise_val = amctx_pcr$value
-k = 1
-for(i in 1:length(amctx_pcr$noise_val)){
-  if(log(amctx_pcr$noise_val[i]) <= 2.5){
-    amctx_pcr$noise_val[i] = amctx_pcr$noise_val[i] + exp(noise[k])
-    k = k + 1
-  }    
-}
-
-ggplot(data=amctx_pcr, aes(x=tx_s_days,y=log(noise_val), group=amctx, color=factor(log(noise_val)))) + 
-  geom_point() + ticks(200) + guides(color=F)
-  
-# take residuals and repeat what you did above
-linearmodel=lm(log(value)~rec_age_fwp1 + rec_gender +
-                 tx_previoustx + d_age + d_gender + d_bmi +
-                 rec_bmi + tx_hla + tx_pra + tx_dgf + 
-                 tx_cit+ is_nr + is_aza + 
-                 is_cni + is_mmf  + ah_nr + 
-                 ah_diur + ah_ace + ah_arb + 
-                 ah_raasi + ah_bb + ah_ccb  + 
-                 dm_oad + dm_insulin + tx_dm + tx_hvdis + 
-                 rr_sys + rr_dias + rr_map + 
-                 tx_dial_days + d_type, data=amctx_pcr)
-
-amctx_pcr$residuals = linearmodel$residuals
-amctx_pcr$fitted = linearmodel$fitted.values
-
-ggplot(data=amctx_pcr, aes(x=tx_s_days,y=residuals)) + geom_point() + stat_smooth() + 
-  ticks(150) + facet_grid(.~rec_gender)
-#Striations gone in above plot but can be seen in below plot
-ggplot(data=amctx_pcr, aes(x=fitted,y=residuals)) + geom_point() + stat_smooth()
-ggplot(data=amctx_pcr, aes(x=fitted,y=residuals^2)) + geom_point() + stat_smooth()
-
-
-# Put knots at 90, 450 and make an additive model
-model_rand_nsslope = lme(data=amctx_pcr, fixed=log(value)~rec_age + rec_gender +
-                           tx_previoustx + d_age + d_gender + d_bmi +
-                           rec_bmi + tx_hla + tx_pra + tx_dgf + 
-                           tx_cit+ is_nr + is_aza + 
-                           is_cni + is_mmf  + ah_nr + 
-                           ah_diur + ah_ace + ah_arb + 
-                           ah_raasi + ah_bb + ah_ccb  + 
-                           dm_oad + dm_insulin + tx_dm + tx_hvdis + 
-                           rr_sys + rr_dias + rr_map + 
-                           tx_dial_days + d_type + 
-                           ns(tx_s_years,knots=c(90, 450)/365),
-                         random = ~ns(tx_s_years,knots=c(90)/365)|amctx, method="ML")
-
-anova.lme(model_rand_nsslope, type = "marginal", adjustSigma = F)
-
-model_rand_nsslope_2 = lme(data=amctx_pcr, fixed=log(value)~d_age + is_aza + ah_ace + ah_arb + 
-                             ah_raasi  + rec_bmi + 
-                             ns(tx_s_years,knots=c(90, 450)/365),
-                           random = ~ns(tx_s_years,knots=c(90)/365)|amctx, method="ML")
-
-anova.lme(model_rand_nsslope_2, type = "marginal", adjustSigma = F)
-anova.lme(model_rand_nsslope_2, model_rand_nsslope)
-
-amctx_pcr$residuals = model_rand_nsslope_2$residuals[,2]
-amctx_pcr$fitted = model_rand_nsslope_2$fitted[,2]
-
-ggplot(data=amctx_pcr, aes(x=tx_s_days,y=residuals)) + geom_point() + stat_smooth() + 
-  ticks(200)
-
-ggplot(data=amctx_pcr, aes(x=fitted,y=residuals)) + geom_point() + stat_smooth()
-ggplot(data=amctx_pcr, aes(x=fitted,y=residuals^2)) + geom_point() + stat_smooth()
-
-#Dunno what to do with striations in residuals. Now i'll check the knots
-model_rand_nsslope_3 = lme(data=amctx_pcr, fixed=log(value)~d_age + is_aza + ah_ace + ah_arb + 
-                             ah_raasi  + rec_bmi + 
-                             ns(tx_s_years,knots=c(100, 200, 350)/365),
-                           random = ~ns(tx_s_years,knots=c(100)/365)|amctx, method="ML"
-)
-
-anova.lme(model_rand_nsslope_3, model_rand_nsslope_2)
-
-amctx_pcr$residuals = model_rand_nsslope_3$residuals[,2]
-amctx_pcr$fitted = model_rand_nsslope_3$fitted[,2]
-
-ggplot(data=amctx_pcr, aes(x=tx_s_days,y=residuals)) + geom_point() + stat_smooth() + 
-  ticks(200)
-
-ggplot(data=amctx_pcr, aes(x=fitted,y=residuals)) + geom_point() + stat_smooth()
-ggplot(data=amctx_pcr, aes(x=fitted,y=residuals^2)) + geom_point() + stat_smooth()
-
-#######with more complicated random effects
-model_rand_nsslope_4 = lme(data=amctx_pcr, fixed=log(value)~ rec_age_fwp1 + d_age + d_gender +
-                             d_bmi + rec_bmi + tx_hla + tx_pra + tx_dgf + tx_cit + 
-                             is_nr + is_mmf + ah_nr + ah_diur + ah_ace + ah_arb + ah_raasi + 
-                             ah_bb + ah_ccb + dm_oad + dm_insulin + tx_dm + tx_hvdis + 
-                             rr_sys + rr_dias + rr_map + tx_dial_days + d_type +
-                             ns(tx_s_years,knots=c(100, 200, 350)/365),
-                           random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx, method="ML",
-                           control = lmeControl(opt = "optim"))
-anova.lme(model_rand_nsslope_4, type = "marginal", adjustSigma = F)
-
-# glmmLasso(points ~ transfer.spendings + ave.unfair.score
-#           + ball.possession + tackles
-#           + ave.attend + sold.out, rnd = list(team=~1),
-#           lambda=10, data = soccer)
-
-lambdaVec = seq(from=50, to = 4000, by = 200)
-bicVec = vector("numeric", length(lambdaVec))
-aicVec = vector("numeric", length(lambdaVec))
-for(i in 1:length(lambdaVec)){
-lasso_pcr = glmmLasso(fix = log(value)~ rec_age_fwp1 + d_age + d_gender +
-            d_bmi + rec_bmi + tx_hla + tx_pra + tx_dgf + tx_cit + 
-            is_nr + is_mmf + ah_nr + ah_diur + ah_ace + ah_arb + ah_raasi + 
-            ah_bb + ah_ccb + dm_oad + dm_insulin + tx_dm + tx_hvdis + 
-            rr_sys + rr_dias + rr_map + tx_dial_days + d_type +
-            tx_s_years,
-          rnd = list(amctx=~1 + tx_s_years), lambda=lambdaVec[i], switch.NR=T,final.re=T,
-          data=amctx_pcr)
-bicVec[i] = lasso_pcr$bic
-aicVec[i] = lasso_pcr$aic
-}
-#lambda around 800 to 1000 seems ok
-
-
-amctx_pcr$residuals = model_rand_nsslope_4$residuals[,2]
-amctx_pcr$fitted = model_rand_nsslope_4$fitted[,2]
-
-ggplot(data=amctx_pcr, aes(x=tx_s_days,y=residuals)) + geom_point() + stat_smooth() + 
-  ticks(200)
-
-ggplot(data=amctx_pcr[amctx_pcr$value==2,], aes(y=tx_s_days,x=fitted)) + geom_point() + stat_smooth() + 
-  ticks(2)
-
-ggplot(data=amctx_pcr[amctx_pcr$value>0,], aes(x=fitted,y=residuals)) + geom_point() + stat_smooth()
-ggplot(data=amctx_pcr, aes(x=fitted,y=residuals^2)) + geom_point() + stat_smooth()
-
-#Final choice
-model_pcr = lme(data=amctx_pcr, fixed=log(value)~d_age + ah_ace + ah_arb + 
-                  ah_raasi  + rec_bmi + d_type + d_bmi + tx_cit+ 
-                  tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
-                  tx_dm + tx_pra + ah_nr + 
-                  ns(tx_s_years,knots=c(100, 200, 350)/365),
-                random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx,
-                control = lmeControl(opt = "optim"))
-anova.lme(model_pcr, type = "marginal", adjustSigma = F)
-
-
 # ah_ace + ah_arb = ah_raasi, perhaps it’s better to not include all three in the model. 
 # Preferably no medication use is included, since they have not been collected in a dynamic way 
 # (just baseline) and without doses. 
 # tx_hla can be modelled as a continuous parameter
 # (hessel: maybe not statistically correct, but this is often done also to reduce parameters and error)  
-model_pcr_feedback0 = lme(data=amctx_pcr, fixed=log(value)~d_age + rec_bmi + d_type + d_bmi + tx_cit+ 
+model_pcr_feedback0 = lme(data=amctx_merged[!is.na(amctx_merged$pcr),], fixed=log(pcr)~d_age + rec_bmi + d_type + d_bmi + tx_cit+ 
                   tx_hla+ rec_age_fwp1 + tx_previoustx + tx_dial_days + 
                   tx_dm + tx_pra + 
                   ns(tx_s_years,knots=c(100, 200, 350)/365),
                 random = ~ns(tx_s_years,knots=c(100, 200)/365)|amctx,
                 control = lmeControl(opt = "optim"), method="ML")
 
-model_pcr_feedback1 = lme(data=amctx_pcr, fixed=log(value)~rec_age_fwp1 + 
+model_pcr_feedback1 = lme(data=amctx_merged[!is.na(amctx_merged$pcr),], 
+                          fixed=log(pcr)~rec_age_fwp1 + 
                             rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
                             tx_hla + tx_pra + tx_dgf + I(ah_nr>0) + tx_dm + tx_hvdis + 
                             rr_sys + rr_dias +
@@ -192,7 +49,8 @@ model_pcr_feedback1 = lme(data=amctx_pcr, fixed=log(value)~rec_age_fwp1 +
                           random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
                           control = lmeControl(opt = "optim"), method="ML")
 
-model_pcr_feedback2 = lme(data=amctx_pcr, fixed=log(value)~rec_age_fwp1 + 
+model_pcr_feedback2 = lme(data=amctx_merged[!is.na(amctx_merged$pcr),], 
+                          fixed=log(pcr)~rec_age_fwp1 + 
                             rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
                             tx_hla + tx_pra + tx_dgf + I(ah_nr>0) + tx_dm + tx_hvdis + 
                             rr_sys + rr_dias +
@@ -202,13 +60,20 @@ model_pcr_feedback2 = lme(data=amctx_pcr, fixed=log(value)~rec_age_fwp1 +
                           random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
                           control = lmeControl(opt = "optim"), method="ML")
 
-model_pcr_feedback3 = lme(data=amctx_pcr, fixed=log(value)~ 
+model_pcr_feedback3 = lme(data=amctx_merged[!is.na(amctx_merged$pcr),], 
+                          fixed=log(pcr)~ 
                             rec_gender + d_age + 
                             ns(tx_s_years,knots=c(50, 200, 365)/365) * rec_gender + 
                             ns(tx_s_years,knots=c(50, 200, 365)/365) * d_cadaveric,
                           random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
                           control = lmeControl(opt = "optim"), method="ML")
 
-anova(model_pcr_feedback2, model_pcr_feedback3)
+model1 = fitUnivaritePCRModel(fixedSplineKnots = c(30, 70, 1000)/365, 
+                              randomSplineKnots = c(30, 70)/365,
+                              boundaryKnots = c(0, 5.5))
+
+plotPCRFittedCurve(list(model_pcr_feedback3, model1), individually = F, transform = F)
+
+anova(model_pcr_feedback1, model_pcr_feedback2, model_pcr_feedback3)
 anova(model_pcr_feedback1, model_pcr_feedback2)
 
