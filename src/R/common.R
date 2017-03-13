@@ -222,6 +222,35 @@ fitUnivariteCreatinineModel = function(fixedSplineKnots=c(50, 100, 900)/365,
   return(model)
 }
 
+plotAUCOverTime = function(auc_roc_list){
+  auc = unlist(lapply(auc_roc_list, function(fold){
+    lapply(fold, function(auc_roc_types){
+      lapply(auc_roc_types[[1]], function(auc_roc_types_instance){
+        auc_roc_types_instance$auc
+        })
+      })
+    }))
+  tstart = unlist(lapply(auc_roc_list, function(fold){
+    lapply(fold, function(auc_roc_types){
+      lapply(auc_roc_types[[1]], function(auc_roc_types_instance){
+        auc_roc_types_instance$Tstart
+      })
+    })
+  }))
+  
+  aucMean = c(by(auc, tstart, function(x){mean(x, na.rm = T)}))
+  aucLow = c(by(auc, tstart, function(x){quantile(x, probs = 0.025, na.rm = T)}))
+  aucUp = c(by(auc, tstart, function(x){quantile(x, probs = 0.975, na.rm = T)}))
+  aucTimes = unique(tstart)
+  
+  plotData = data.frame(aucTimes, aucMean, aucUp, aucLow)
+  plot = ggplot(data=plotData) + geom_line(aes(y=aucMean, x=aucTimes)) + 
+    geom_ribbon(aes(x=aucTimes, ymin = aucLow, ymax = aucUp), fill="grey", alpha=0.5)
+  
+  print(plot)
+  return(plotData)
+}
+
 # 
 # idList = droplevels(unique(amctx.id[amctx.id$gl_failure==0,]$amctx))
 # 

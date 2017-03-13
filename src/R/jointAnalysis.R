@@ -3,12 +3,17 @@ library(JMbayes)
 ######################################
 #Without the multivariate functionality
 ######################################
-jointfit_creatinine_nomv = jointModelBayes(model_creatinine, coxModel, timeVar = "tx_s_years", n.iter = 1000)
-jointfit_creatinine_tdboth_nomv = update(jointfit_creatinine_nomv, param = "td-both", 
-                                         extraForm = list(fixed = ~ 0 + dns(tx_s_years, knots=c(100, 300, 1000)/365, Boundary.knots = c(0, 11)), 
-                                                          random = ~ 0 + dns(tx_s_years, knots = c(100, 300)/365, Boundary.knots = c(0, 11)),
-                                                          indFixed = 20:23, indRandom = 2:4))
+jmbayes_creatinine_tdval = jointModelBayes(lmeObject = lme_creatinine_final, survObject = coxModel, timeVar = "tx_s_years", control = list(n.iter=1000))
+jmbayes_creatinine_tdboth = update(jmbayes_creatinine_tdval, param = "td-both", 
+                                   extraForm = list(fixed = ~ 0 + dns(tx_s_years, knots=c(30, 70, 1000)/365, Boundary.knots = c(0, 6)) + 
+                                                      I(dns(tx_s_years, knots=c(30, 70, 1000)/365, Boundary.knots = c(0, 6))*(as.numeric(d_cadaveric)-1)) + 
+                                                      I(dns(tx_s_years, knots=c(30, 70, 1000)/365, Boundary.knots = c(0, 6))*(as.numeric(tx_dgf)-1)),
+                                                    random = ~ 0 + dns(tx_s_years, knots = c(30, 70)/365, Boundary.knots = c(0, 6)), 
+                                                    indFixed = c(8:11, 14:17, 18:21), indRandom = 2:4))
 
+jmbayes_creatinine_tdboth_replaced = replaceMCMCContents(fromObj = mvJoint_creatinine_tdboth, toObj = jmbayes_creatinine_tdboth)
+
+save.image("Rdata/feedbackmeeting.Rdata")
 ####################################################
 # Multivariate functionality
 ####################################################
@@ -34,7 +39,7 @@ forms_creatinine <- list("log(creatinine)" = "value",
                                                   indFixed = c(8:11, 14:17, 18:21), indRandom = 2:4, 
                                                   name = "slope"))
 
-mvJoint_creatinine_tdslope <- update(mvJoint_creatinine_tdval, Formulas = forms_creatinine,
+mvJoint_creatinine_tdboth <- update(mvJoint_creatinine_tdval, Formulas = forms_creatinine,
                                      priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
 
 save.image("Rdata/feedbackmeeting.Rdata")
@@ -59,7 +64,7 @@ forms_pcr <- list("log(pcr)" = "value",
                                                   indFixed = c(4:7, 9:12, 13:16), indRandom = 2:4, 
                                                   name = "slope"))
 
-mvJoint_pcr_tdslope <- update(mvJoint_pcr_tdval, Formulas = forms_pcr,
+mvJoint_pcr_tdboth <- update(mvJoint_pcr_tdval, Formulas = forms_pcr,
                                      priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
 save.image("Rdata/feedbackmeeting.Rdata")
 

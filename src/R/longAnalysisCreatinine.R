@@ -1,6 +1,14 @@
 source("src/R/common.R")
 
 #################################
+# Just to check the schedule
+##################################
+ggplot(data=amctx_creatinine[amctx_creatinine$tx_s_years<1,], aes(factor(visit_num), tx_s_days)) + 
+  geom_boxplot() + stat_summary(fun.data = function(x){
+    return(c(y = 1.2, label = length(x))) 
+  }, geom = "text", fun.y = median)
+
+#################################
 # longitudinal analysis for creatinine
 #################################
 
@@ -118,10 +126,8 @@ model3 = fitUnivariteCreatinineModel(boundaryKnots = c(0,6),
                                      randomSplineKnots = c(30, 70)/365)
 
 #After trying various models from the above list, the best fit is by model3
+lme_creatinine_final = model3
 save.image("Rdata/feedbackmeeting.Rdata")
 
 plotCreatinineFittedCurve(list(model1, model2, model3), 
                           individually = F, transform = T)
-
-jmbayes_creatinine_orig = jointModelBayes(lmeObject = model3, survObject = coxModel, timeVar = "tx_s_years", control = list(n.iter=1000))
-jmbayes_creatinine_replaced = replaceMCMCContents(mvJoint_creatinine_tdval, jmbayes_creatinine_orig)
