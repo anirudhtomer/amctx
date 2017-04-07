@@ -1,7 +1,8 @@
 library(MASS)
 library(splines)
 
-nSub <- 1000 # number of subjects
+set.seed(1000)
+nSub <- 500 # number of subjects
 
 fittedJointModel = mvJoint_pcr_creatinine_tdboth
 
@@ -78,12 +79,20 @@ getAlphaCreatinine = function(jointModel, weightedOnes = T){
   }
 }
 
+getBsGammas = function(jointModel, weightedOnes = T){
+  if(weightedOnes){
+    jointModel$statistics$postwMeans$Bs_gammas
+  }else{
+    jointModel$statistics$postMeans$Bs_gammas
+  }
+}
+
 hazardFunc = function (s, i) {
   pdf_s = dweibull(s, shape = weibullShape, scale = weibullScale)
   survival_s = (1-pweibull(q = s,shape= weibullShape, scale = weibullScale))
   baselinehazard_s = pdf_s/survival_s
   
-  df_s = data.frame(tx_s_years = s, Age = Age[i])
+  df_s = data.frame(tx_s_years = s, rec_age_fwp1 = rec_age[i], simDs.id[i, ])
   
   xi_s_val_pcr = model.matrix(fixedValueFormula_pcr, df_s)
   xi_s_val_creatinine = model.matrix(fixedValueFormula_creatinine, df_s)
@@ -100,8 +109,8 @@ hazardFunc = function (s, i) {
   zib_val_pcr = zi_s_val_pcr %*% b_pcr[i, ]
   zib_val_creatinine = zi_s_val_creatinine %*% b_creatinine[i, ]
   
-  zib_slope_pcr = zi_s_slope %*% b_pcr[i, -1] #-1 to ignore intercept
-  zib_slope_creatinine = zi_s_slope %*% b_creatinine[i, -1] #-1 to ignore intercept
+  zib_slope_pcr = zi_s_slope_pcr %*% b_pcr[i, -1] #-1 to ignore intercept
+  zib_slope_creatinine = zi_s_slope_creatinine %*% b_creatinine[i, -1] #-1 to ignore intercept
   
   xBetaZb_s_value_pcr = xi_s_val_pcr %*% betas_pcr + zib_val_pcr
   xBetaZb_s_value_creatinine = xi_s_val_creatinine %*% betas_creatinine + zib_val_creatinine
@@ -109,7 +118,7 @@ hazardFunc = function (s, i) {
   #-c(1:3) to ignore intercept, age and age^2 in the
   xBetaZb_s_slope_pcr = xi_s_slope_pcr %*% betas_pcr[c(4:7, 9:12, 13:16)] + zib_slope_pcr
   xBetaZb_s_slope_creatinine = xi_s_slope_creatinine %*% betas_creatinine[c(8:11, 14:17, 18:21)] + zib_slope_creatinine
-   
+  
   y_Alpha_pcr = cbind(xBetaZb_s_value_pcr, xBetaZb_s_slope_pcr) %*% getAlphaPcr(fittedJointModel)
   y_Alpha_creatinine = cbind(xBetaZb_s_value_creatinine, xBetaZb_s_slope_creatinine) %*% getAlphaCreatinine(fittedJointModel)
   
@@ -167,28 +176,24 @@ longTimes = do.call(what = rbind, lapply(1:nSub, function(x){generateLongtiudina
 
 timesPerSubject = rep(nrow(longTimes) / nSub, nSub)
 
-qplot(x = c(amctx.id$rec_age, rnorm(nrow(amctx.id), mean=mean(amctx.id$rec_age), sqrt(var(amctx.id$rec_age)))), 
+qplot(x = c(amctx.id$rec_age, rgamma(nrow(amctx.id), shape=60, scale = 0.9)), 
       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-qplot(x = c(amctx.id$d_age, rnorm(nrow(amctx.id), mean=mean(amctx.id$d_age), sqrt(var(amctx.id$d_age)))), 
+qplot(x = c(amctx.id$d_age, rgamma(nrow(amctx.id), shape=50, scale=1)), 
       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-qplot(x = c(amctx.id$rec_bmi, rnorm(nrow(amctx.id), mean=mean(amctx.id$rec_bmi), sqrt(var(amctx.id$rec_bmi)))), 
+qplot(x = c(amctx.id$rec_bmi, rgamma(nrow(amctx.id), shape=50, scale=0.5)), 
       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-
-#tx_dial_days has an outlier at positiion: which.max(amctx.id$tx_dial_days)
-qplot(x = c(amctx.id$tx_dial_days[-which.max(amctx.id$tx_dial_days)], 
-            rnorm(nrow(amctx.id[-which.max(amctx.id$tx_dial_days),]), 
-                  mean=mean(amctx.id$tx_dial_days[-which.max(amctx.id$tx_dial_days)]), 
-                  sqrt(var(amctx.id$tx_dial_days[-which.max(amctx.id$tx_dial_days)])))), 
-      geom="density", color=c(rep("Obs", nrow(amctx.id[-which.max(amctx.id$tx_dial_days),])), 
-                              rep("Sim", nrow(amctx.id[-which.max(amctx.id$tx_dial_days),]))))
-
+qplot(x = c(amctx.id$tx_dial_days, rgamma(nrow(amctx.id), shape=2.5, scale=500)), 
+      geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
+qplot(x = c(amctx.id$tx_pra[amctx.id$tx_pra>0], 
+            rgamma(nrow(amctx.id[amctx.id$tx_pra>0,]), shape=1, scale=12) + 2), 
+      geom="density", color=c(rep("Obs", nrow(amctx.id[amctx.id$tx_pra>0,])), 
+                              rep("Sim", nrow(amctx.id[amctx.id$tx_pra>0,]))))
 
 #make rec_age_fwp1 for the longitudinal data set
-rec_age = rnorm(n = nSub, mean=mean(amctx.id$rec_age), sd=sqrt(var(amctx.id$rec_age)))
-d_age = rnorm(n = nSub, mean=mean(amctx.id$d_age), sd=sqrt(var(amctx.id$d_age)))
-rec_bmi = rnorm(n = nSub, mean=mean(amctx.id$rec_bmi), sd=sqrt(var(amctx.id$rec_bmi)))
-tx_dial_days = rnorm(nSub, mean=mean(amctx.id$tx_dial_days[-which.max(amctx.id$tx_dial_days)]), 
-                       sqrt(var(amctx.id$tx_dial_days[-which.max(amctx.id$tx_dial_days)])))
+rec_age = rgamma(n = nSub, shape=60, scale = 0.9)
+d_age = rgamma(n = nSub, shape=50, scale = 1)
+rec_bmi = rgamma(n = nSub, shape=50, scale = 0.5)
+tx_dial_days =  rgamma(nSub, shape=2.5, scale=500)
 tx_previoustx = ifelse(rbinom(nSub, size = 1, table(amctx.id$tx_previoustx)["yes"]/nrow(amctx.id))==1, "yes", "no")
 d_gender = ifelse(rbinom(nSub, size = 1, table(amctx.id$d_gender)["M"]/nrow(amctx.id))==1, yes = "M", "F")
 rec_gender = ifelse(rbinom(nSub, size = 1, table(amctx.id$rec_gender)["M"]/nrow(amctx.id))==1, yes = "M", "F")
@@ -206,30 +211,28 @@ replace = F)
 
 #tx_pra-first sample the zeros
 tx_pra_zeros = rep(0, sum(rbinom(nSub, size=1, table(amctx.id$tx_pra==0)["TRUE"]/nrow(amctx.id))))
-tx_pra = sample(c(tx_pra_zeros, round(rgamma(nSub-length(tx_pra_zeros), shape=0.5, scale=20))+2), replace = F)
+tx_pra = sample(c(tx_pra_zeros, round(rgamma(nSub-length(tx_pra_zeros), shape=1, scale=12))+2), replace = F)
 
 subId <- rep(1:nSub)
 simDs.id = data.frame(amctx = subId, rec_age, d_age, rec_bmi, tx_dial_days, tx_previoustx,
                       d_gender, rec_gender, d_cadaveric, tx_dgf, tx_dm, tx_pra, ah_nr)
 
-simDs = do.call(rbind, lapply(1:nSub, function(i){
-  data.frame(amctx = rep(subId[i], each=timesPerSubject[i]), 
-                   rec_age_fwp1 = rep(rec_age[i], each=timesPerSubject[i]),
-                   d_age = rep(d_age[i], each=timesPerSubject[i]),
-                   rec_bmi = rep(rec_bmi[i], each=timesPerSubject[i]),
-                   tx_dial_days = rep(tx_dial_days[i], each=timesPerSubject[i]),
-                   tx_previoustx = rep(tx_previoustx[i], each=timesPerSubject[i]),
-                   d_gender = rep(d_gender[i], each=timesPerSubject[i]),
-                   rec_gender = rep(rec_gender[i], each=timesPerSubject[i]),
-                   d_cadaveric = rep(d_cadaveric[i], each=timesPerSubject[i]),
-                   tx_dgf = rep(tx_dgf[i], each=timesPerSubject[i]),
-                   tx_dm = rep(tx_dm[i], each=timesPerSubject[i]),
-                   ah_nr = rep(ah_nr[i], each=timesPerSubject[i]),
-                   tx_pra = rep(tx_pra[i], each=timesPerSubject[i]))
-  }))
-simDs = cbind(simDs, longTimes)
-simDs$logPcr = NA
-simDs$logCreatinine = NA
+simDs = data.frame(amctx = rep(subId, timesPerSubject), 
+                   rec_age_fwp1 = rep(rec_age, timesPerSubject),
+                   d_age = rep(d_age, timesPerSubject),
+                   rec_bmi = rep(rec_bmi, timesPerSubject),
+                   tx_dial_days = rep(tx_dial_days, timesPerSubject),
+                   tx_previoustx = rep(tx_previoustx, timesPerSubject),
+                   d_gender = rep(d_gender, timesPerSubject),
+                   rec_gender = rep(rec_gender, timesPerSubject),
+                   d_cadaveric = rep(d_cadaveric, timesPerSubject),
+                   tx_dgf = rep(tx_dgf, timesPerSubject),
+                   tx_dm = rep(tx_dm, timesPerSubject),
+                   ah_nr = rep(ah_nr, timesPerSubject),
+                   tx_pra = rep(tx_pra, timesPerSubject),
+                   tx_s_years = longTimes$tx_s_years, 
+                   isPcr = longTimes$isPcr, isCreatinine = longTimes$isCreatinine, 
+                   logPcr=NA, logCreatinine=NA)
 
 X_pcr = model.matrix(fixedValueFormula_pcr, data = simDs[simDs$isPcr==T,])
 X_creatinine = model.matrix(fixedValueFormula_creatinine, data = simDs[simDs$isCreatinine==T,])
@@ -253,7 +256,7 @@ Zb_pcr = unlist(lapply(1:nSub,function(i){
 }))
 
 Zb_creatinine = unlist(lapply(1:nSub,function(i){
-  Z_creatinine[(visitCumsum[i] + 1): visitCumsum[i+1],] %*% b_creatinine[i, ]
+  Z_creatinine[(visitCumsum[i] + 1):visitCumsum[i+1],] %*% b_creatinine[i, ]
 }))
 
 xBetaZb_pcr = X_pcr %*% betas_pcr + Zb_pcr
@@ -274,12 +277,27 @@ W <- model.matrix(survivalFormula, data = simDs.id)[,-1] #drop the intercept
 gammas = getGamma(fittedJointModel)
 wGamma <- as.vector(W %*% gammas)
 
-weibullShape = 1
-weibullScale = 7
+weibullShape = 1.70
+weibullScale = 8000
+#6250
+
+# bsGammas = getBsGammas(fittedJointModel)
+# time = seq(1, 10, by=0.1)
+# baselineHazard_fitted = exp(splineDesign(fittedJointModel$control$knots, x = time) %*% bsGammas)
+# 
+# pdf_sim = dweibull(time, shape = weibullShape, scale = weibullScale)
+# survival_sim = (1-pweibull(q = time,shape= weibullShape, scale = weibullScale))
+# baselinehazard_sim = pdf_sim/survival_sim
+# 
+# p1 = qplot(y=c(baselinehazard_sim, baselineHazard_fitted), x = c(time,time), geom="line", 
+#            color=c(rep("sim", length(time)), rep("Fitted", length(time)))) + theme(legend.position="none")
+# p2 = qplot(x = rweibull(10000, shape = weibullShape, scale = weibullScale), geom="density")
+# multiplot(p1, p2, cols=2)
 
 u <- runif(nSub)
 simDs.id$years_tx_gl <- NA
-for (i in 1:nSub) {
+#simDs.id$years_tx_gl[1:300] = foreach(i=1:300,.combine='c') %dopar%{
+for (i in 1:300) {
     Up <- 10
     tries <- 5
     Root <- try(uniroot(invSurvival, interval = c(1e-05, Up), u = u[i], i = i)$root, TRUE)
@@ -289,7 +307,13 @@ for (i in 1:nSub) {
         Root <- try(uniroot(invSurvival, interval = c(1e-05, Up), u = u[i], i = i)$root, TRUE)
     }
     simDs.id$years_tx_gl[i] <- if (!inherits(Root, "try-error")) Root else NA
+    #if (!inherits(Root, "try-error")) Root else NA
 }
+sum(is.na(simDs.id$years_tx_gl[1:300]))/300
+
+plot(density(simDs.id$years_tx_gl, na.rm = T))
+plot(hist(amctx.id$years_tx_gl))
+plot(density(amctx.id$years_tx_gl))
 
 pid_to_keep = simDs.id[!is.na(simDs.id$years_tx_gl),]$amctx
 
@@ -301,7 +325,7 @@ simDs.id$amctx = droplevels(simDs.id$amctx)
 #Divide into training and test
 trainingSize = round(nrow(simDs.id)/2)
 trainingDs.id = simDs.id[1:trainingSize, ]
-testDs.id = simDs.id[(trainingSize + 1):nSub,]
+testDs.id = simDs.id[(trainingSize + 1):nrow(simDs.id),]
 trainingDs.id$amctx = droplevels(trainingDs.id$amctx)
 testDs.id$amctx = droplevels(testDs.id$amctx)
 
@@ -312,16 +336,24 @@ testDs$amctx = droplevels(testDs$amctx)
 
 # simulate censoring times from an exponential distribution for TRAINING DATA SET ONLY
 # and calculate the observed event times, i.e., min(true event times, censoring times)
-Ctimes <- rexp(trainingSize, 1/mean(prias.id[prias.id$gl_failure==0,]$years_tx_gl))
+Ctimes <- rexp(trainingSize, 1/mean(amctx.id[amctx.id$gl_failure==0,]$years_tx_gl))
 trainingDs.id$gl_failure = trainingDs.id$years_tx_gl > Ctimes
-trainingDs.id$years_tx_gl = min(trainingDs.id$years_tx_gl, Ctimes)
-trainingDs$years_tx_gl = rep(trainingDs.id$years_tx_gl, each=timesPerSubject)
+trainingDs.id$years_tx_gl = pmin(trainingDs.id$years_tx_gl, Ctimes)
+trainingDs$years_tx_gl = rep(trainingDs.id$years_tx_gl, 56)
 
 # drop the longitudinal measurementsthat were taken after the observed event time for each subject.
 trainingDs = trainingDs[trainingDs$tx_s_years <= trainingDs$years_tx_gl, ]
+
+ggplot(data=trainingDs[trainingDs$isCreatinine==T,], aes(x=tx_s_years, y=logCreatinine)) + 
+  geom_line(aes(group=amctx)) + stat_smooth()
+
 
 # delete all unused objects
 rm(y, X, Z, id, n, na.ind, long.na.ind, ind, Ctimes, Time, event, W, 
     betas, sigma.y, gammas, alpha, eta.t, eta.y, phi, mean.Cens, t.max,
     trueTimes, u, Root, invSurvival, D, b, K, 
     times, group, i, tries, Up, boundaryKnots, fixedKnots, DF)
+
+#########################################
+# Fit joint model for the simulated data set
+########################################

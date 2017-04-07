@@ -1,12 +1,6 @@
-# ND = amctx_merged[!is.na(amctx_merged$creatinine),]
-# ND$amctx = as.numeric(ND$amctx)
-# 
-# roc_creatinine = rocJM(jmbayes_creatinine_tdboth_replaced, ND, Tstart=3.5, Dt=c(1), idVar = "amctx")
-# 
-# aucJM(jmbayes_creatinine_tdboth_replaced, ND, Tstart=3.5, Dt=c(1), idVar = "amctx")
-# 
-# qplot(y=roc_creatinine$TP, x=roc_creatinine$FP,geom="line") + 
-#   geom_abline(aes(slope=1, intercept=0),linetype = "dotted") + ylab("Sensitivity") + 
-#   xlab("1-Specificity") + xlim(0,1) + ylim(0,1)
-jmbayes_training_replaced = auc_roc(rep_splits[[1]][[10]])
-rocJM(jmbayes_training_replaced, test, Tstart=5, Dt=c(1), idVar = "amctx")
+temp = pDynStopTime(simJointModel_replaced, newdata = patientDsList[[1]], Dt = 1, K = 50, seed = 2015, idVar="amctx")
+temp$summary$times
+exp(temp$summary$Info)
+
+temp2 = dynInfo(simJointModel_replaced, newdata = patientDsList[[1]], Dt = 0.26, K = 50, seed = 2015, idVar="amctx")
+temp3 = dynInfo_mod(simJointModel_replaced, newdata = patientDsList[[1]], Dt = 0.26, K = 50, seed = 2015, idVar="amctx")

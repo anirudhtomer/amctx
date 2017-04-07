@@ -13,7 +13,7 @@ ticksX = function(from=0, max, by, labels=waiver()){
 }
 
 ticksY = function(from=0, max, by, labels = waiver()){
-  scale_y_continuous(breaks = seq(from, max, by = by), labels=waiver())
+  scale_y_continuous(breaks = round(seq(from, max, by = by),3), labels=waiver())
 }
 
 sourceDir <- function(path, trace = TRUE, ...) {
@@ -25,6 +25,7 @@ sourceDir <- function(path, trace = TRUE, ...) {
 }
 
 source("../JMBayes/Anirudh/dev/replaceMCMCContents.R")
+source("../JMBayes/Anirudh/dev/multiplot.R")
 
 plotRandomProfile = function(count=1, fitted=F, creatinine=T){
   
@@ -72,6 +73,7 @@ plotPCRFittedCurve = function(models, transform=F, individually=T){
                                 rec_gender = c("F","M"),
                                 d_age = median(amctx.id$d_age),
                                 d_cadaveric=c("no", "yes")))
+  
   
   plotData = lapply(models, function(model){
     temp = effectPlotData(model, newDF, ds)
@@ -153,7 +155,7 @@ plotCreatinineFittedCurve = function(models, transform=F, individually=T){
                                    tx_dm = "no", ah_nr=median(amctx.id$ah_nr),
                                    tx_dgf = c("no", "yes"), 
                                    d_cadaveric=c("no", "yes")))
-  
+  effectPlotData(models[[1]], newDF, ds)  
   plotData = lapply(models, function(model){
     temp = effectPlotData(model, newDF, ds)
     
