@@ -27,14 +27,14 @@ plotDynamicSurvival = function(patientId){
 simJointModel_replaced = replaceMCMCContents(mvJoint_creatinine_tdboth_training, jmbayes_creatinine_tdboth_training)
 
 invDynSurvival <- function (t, u, patientDs) {
-  u - survfitJM(simJointModel_replaced, patientDs, idVar="amctx", survTimes = t)$summaries[[1]][1, "Mean"]
+  u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", survTimes = t)$summaries[[1]][1, "Median"],3)
 }
 
 pDynSurvTime = function(survProb, patientDs){
   #Return the time at which the dynamic survival probability is say 90%
   
   Low = max(patientDs$tx_s_years) + 1e-05
-  Up <- 25
+  Up <- 10
   tries  = 0
   
   repeat{
@@ -43,10 +43,10 @@ pDynSurvTime = function(survProb, patientDs){
                         u = survProb, patientDs = patientDs)$root, TRUE)
     
     if(inherits(Root, "try-error")){
-      if(tries >= 5){
+      if(tries >= 40){
         return(NA)
       }else{
-        Up = Up + 0.5    
+        Up = Up + 0.25    
       }
     }else{
       return(Root)

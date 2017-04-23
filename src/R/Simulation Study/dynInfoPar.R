@@ -212,14 +212,14 @@ dynInfoPar <- function (object, newdata, Dt, K = 5, M = 500, idVar = "id", maxRi
                            }
                            b.old1 <- b.new1
                            # Step 2-3: Simulate T_j^* from [T_j^* | T_j > t, {Y_j(t), y_j(u)}]
-                           #prop_Tj <- runif(1, times[ti], maxTime * 1.1)
-                           #aa <- min(exp(log.p_Tj(prop_Tj) - log.p_Tj(old_Tj)), 1)
-                           #ind <- runif(1) <= aa
-                           #if (!is.na(ind) && ind) {
-                           #    Tj <- prop_Tj
-                           #    count <- count + 1
-                           #}
-                           #old_Tj <- Tj
+                           prop_Tj <- runif(1, times[ti], maxTime * 1.1)
+                           aa <- min(exp(log.p_Tj(prop_Tj) - log.p_Tj(old_Tj)), 1)
+                           ind <- runif(1) <= aa
+                           if (!is.na(ind) && ind) {
+                              Tj <- prop_Tj
+                              count <- count + 1
+                           }
+                           old_Tj <- Tj
                            ##################################################################################
                            # Step 3-1: Simulate parameter values from [theta | D_n]
                            betas.new <- mcmc$betas[m + 2*M, ]

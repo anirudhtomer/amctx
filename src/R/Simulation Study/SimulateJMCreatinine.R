@@ -3,7 +3,7 @@ source("src/R/common.R")
 library(MASS)
 library(splines)
 
-set.seed(1000)
+set.seed(1002)
 nSub <- 1000
 
 fittedJointModel = mvJoint_creatinine_tdboth
@@ -64,9 +64,8 @@ getBsGammas = function(jointModel, weightedOnes = T){
 }
 
 hazardFunc = function (s, i) {
-  pdf_s = dweibull(s, shape = weibullShape, scale = weibullScale)
-  survival_s = (1-pweibull(q = s,shape= weibullShape, scale = weibullScale))
-  baselinehazard_s = pdf_s/survival_s
+  index = simDs.id$weibullIndices[i]
+  baselinehazard_s = (weibullShape[index]/weibullScale[index])*(s/weibullScale[index])^(weibullShape[index]-1)
   
   df_s = data.frame(tx_s_years = s, rec_age_fwp1 = simDs.id[i, "rec_age"], simDs.id[i, ])
   
@@ -245,9 +244,13 @@ wGamma <- as.vector(W %*% gammas)
 
 #weibullShape = 1.40
 #weibullScale = 80000
+# weibullShape = c(5.5,1.8)
+# weibullScale = c(70, 5000)
 
-weibullShape = 1.40
-weibullScale = 80000
+
+weibullShape = c(5.5,1.4)
+weibullScale = c(70, 50000)
+simDs.id$weibullIndices = rbinom(nrow(simDs.id), size = 1, 0.5) + 1
 
 #set.seed(432)
 u <- runif(nSub)
@@ -284,10 +287,12 @@ testDs.id = simDs.id[(trainingSize + 1):nrow(simDs.id),]
 trainingDs = simDs[simDs$amctx %in% trainingDs.id$amctx, ]
 testDs = simDs[simDs$amctx %in% testDs.id$amctx, ]
 
-save.image("Rdata/simCreatinine.Rdata")
+#save.image("Rdata/simCreatinine.Rdata")
 # simulate censoring times from an exponential distribution for TRAINING DATA SET ONLY
 # and calculate the observed event times, i.e., min(true event times, censoring times)
-Ctimes <- rexp(trainingSize, 1/mean(amctx.id[amctx.id$gl_failure==0,]$years_tx_gl))
+#Ctimes <- rexp(trainingSize, 1/mean(amctx.id[amctx.id$gl_failure==0,]$years_tx_gl))
+Ctimes = runif(trainingSize, 0, 15)
+
 mean(Ctimes)
 boxplot(Ctimes)
 trainingDs.id$gl_failure = trainingDs.id$years_tx_gl <= Ctimes
@@ -297,7 +302,12 @@ trainingDs$years_tx_gl = rep(trainingDs.id$years_tx_gl, each = timesPerSubject)
 # drop the longitudinal measurementsthat were taken after the observed event time for each subject.
 trainingDs = trainingDs[trainingDs$tx_s_years <= trainingDs$years_tx_gl, ]
 
+quantile(trainingDs$tx_s_years)
+quantile(amctx_creatinine$tx_s_years)
 ggplot(data=trainingDs, aes(x=tx_s_years, y=logCreatinine)) + 
+  geom_line(aes(group=amctx)) + stat_smooth()
+
+ggplot(data=amctx_creatinine, aes(x=tx_s_years, y=log(value))) + 
   geom_line(aes(group=amctx)) + stat_smooth()
 
 save.image("Rdata/simCreatinine.Rdata")

@@ -20,6 +20,17 @@ simTestDs.id$fixedScheduleStopTime = sapply(simTestDs.id$amctx, function(patient
   }
 })
 
+simTestDs.id$fixedScheduleObsCount = sapply(simTestDs.id$amctx, function(patientId){
+  patientDs_i = simTestDs[simTestDs$amctx %in% patientId, ]
+  
+  stopVisitIndex = which((1 - patientDs_i$fixed_pt5yr_survprob) >= maxRisk)[1]
+  if(!is.na(stopVisitIndex)){
+    stopVisitIndex - minFixedMeasurements
+  }else{
+    NA
+  }
+})
+
 save.image("Rdata/simCreatinine.Rdata")
 
 patientId = 583

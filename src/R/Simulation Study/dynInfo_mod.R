@@ -265,7 +265,7 @@ dynInfo_mod <- function (object, newdata, Dt, K = 5, M = 500, idVar = "id",
                 sigma.new <- mcmc$sigma[m + 3*M, ]
             if (!is.null(W))
                 gammas.new <- mcmc$gammas[m + 3*M, ]
-            if (param %in% c("td-value", "td-both", "shared-betasRE", "shared-RE")) 
+            if (param %in% c("td-value", "td-both", "shared-betasRE", "shared-RE"))
                 alphas.new <- mcmc$alpha[m + 3*M, ]
             if (param %in% c("td-extra", "td-both"))
                 Dalphas.new <- mcmc$Dalphas[m + 3*M, ]
@@ -282,7 +282,7 @@ dynInfo_mod <- function (object, newdata, Dt, K = 5, M = 500, idVar = "id",
             p.b3 <- proposed.b3[m, ]
             dmvt.old3 <- dmvt(b.old3, modes.b, invSigma = invVars.b, df = 4, log = TRUE)
             dmvt.prop3 <- dmvt.proposed3[m]
-            a3 <- min(exp(log.posterior.b(p.b3, y, list(survMats[[1 + ti]]), ii = 1) + dmvt.old3 - 
+            a3 <- min(exp(log.posterior.b(p.b3, y, list(survMats[[1 + ti]]), ii = 1) + dmvt.old3 -
                               log.posterior.b(b.old3, y, list(survMats[[1 + ti]]), ii = 1) - dmvt.prop3), 1)
             ind3 <- runif(1) <= a3
             if (!is.na(ind3) && ind3) {

@@ -24,7 +24,7 @@ sourceDir <- function(path, trace = TRUE, ...) {
   }
 }
 
-source("../JMBayes/Anirudh/dev/replaceMCMCContents.R")
+source("../JMBayes/Anirudh/dev/replaceMCMCContentsLight.R")
 source("../JMBayes/Anirudh/dev/multiplot.R")
 
 plotRandomProfile = function(count=1, fitted=F, creatinine=T){

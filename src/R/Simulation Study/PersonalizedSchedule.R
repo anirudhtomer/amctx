@@ -1,115 +1,210 @@
-#Step 1: Calculate after first 5 (say) meaurements, the time point at which we have maxRisk probability
+source("src/R/Simulation Study/dynInfo_mod.R")
+source("src/R/Simulation Study/dynInfoPar.R")
+source("src/R/Simulation Study/pDynStopTime.R")
 
-#Should this be after 2 months?
-minFixedMeasurements = 5
+minFixedMeasurements = 15
 
+ct1 = makeCluster(8)
+registerDoParallel(ct1)
+#Technique 1:
+#Use dynamic prediction to choose upper limit
+#Use EKL without denominator for choosing the time point
 persTestDs = simTestDs[simTestDs$visitNumber <= minFixedMeasurements,]
-patientDsList = split(persTestDs, persTestDs$amctx)
-
-ND = patientDsList[[1]]
-longprof = predict(simJointModel_replaced,ND , type = "Subject", interval = "confidence", 
-                   return = TRUE, idVar="amctx", FtTimes = seq(0.5, 6, 0.1))
-last.time <- with(longprof, tx_s_years[!is.na(low)][1])
-longprof[longprof$tx_s_years>last.time,]$logCreatinine=NA
-ggplot(data = longprof, aes(x = tx_s_years, y=pred)) + geom_line() +
-  geom_ribbon(aes(ymin=low, ymax=upp), fill="grey", alpha=0.5) +
-  geom_point(aes(y=logCreatinine), colour="red", alpha=0.4) +
-  geom_vline(xintercept = last.time, linetype="dotted") +
-  xlab("Time (years)") + ylab("Predicted log(serum creatinine)")
-  
-
-for(i in 1:length(patientDsList)){
-  patientDs_i = patientDsList[[i]]
+patientDsListt1 = split(persTestDs, persTestDs$amctx)
+for(i in 1:length(patientDsListt1)){
+  patientDs_i = patientDsListt1[[i]]
   patientId = patientDs_i$amctx[1]
+  print(paste(patientId, "---", simTestDs.id$dynamicMaxRiskTime[i]))
   
   if(!is.na(simTestDs.id$dynamicMaxRiskTime[simTestDs.id$amctx==patientId])){
     repeat{
-      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
-                   survTimes = max(patientDsList[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
-      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsList[[i]]$tx_s_years)>10){
+      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsListt1[[i]], idVar="amctx", 
+                   survTimes = max(patientDsListt1[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
+      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsListt1[[i]]$tx_s_years)>10){
         break
       }
       
-      #Subtracting 2, because we are interested in 2 years survival time
-      temp <- pDynStopTime(simJointModel_replaced, newdata = patientDsList[[i]], Dt = 2, K = 50, seed = 2015, idVar="amctx", maxRiskTime = maxRiskDt)
-      #maxInfoTime = temp$summary$times[which(exp(temp$summary$Info) <= (1-maxRisk))[1]]
-      #apply(temp$full.results, 2, function(x){exp(HPDinterval(as.mcmc(x)))})
+      maxInfoTime = pDynSurvTime(1-maxRisk, patientDsListt1[[i]])
+      maxInfoDt = maxInfoTime - max(patientDsListt1[[i]]$tx_s_years)
       
-      maxInfoTime = temp$summary$times[apply(temp$full.results, 2, function(x){interval = exp(HPDinterval(as.mcmc(x))); (1-maxRisk) > interval[1] & (1-maxRisk) <= interval[2]})][1]
-      
-      if(is.na(maxInfoTime)){
-        maxInfoTime = temp$summary$times[1]
-      }
-      
-      maxInfoDt = maxInfoTime - max(patientDsList[[i]]$tx_s_years)
-      
-      temp2 = dynInfoPar(simJointModel_replaced, newdata = patientDsList[[i]], Dt = 5, K = 50, seed = 2015, idVar="amctx")
-      newTime = temp2$summary$times[which.max(temp2$summary$Info)]
+      dynInfoRes = dynInfoPar(simJointModel_replaced, newdata = patientDsListt1[[i]], Dt = maxInfoDt, K = 100, seed = 2017, idVar="amctx")
+      info = dynInfoRes$summary$Info
+      newTime = dynInfoRes$summary$times[which.max(info)]
       
       #add new row to the patient DS
       newRow = patientDs_i[1, ]
       newRow$tx_s_years = newTime
       newRow$logCreatinine = rLogCreatinine(patientId = patientId, newRow$tx_s_years)
       
-      patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
-      print("Step")
+      patientDsListt1[[i]] = rbind(patientDsListt1[[i]], newRow)
+      print(paste("Step", newTime))
     }
-  print(paste("Patient", i))
+  print("Next Patient")
  }
 }
+stopCluster(ct1)
 
-save.image("Rdata/simCreatinine1.Rdata")
+save(patientDsListt1, file = "Rdata/technique1_k100.Rdata")
 
-simTestDs.id$persScheduleStopTime = sapply(patientDsList, function(x){max(x$tx_s_years)})
+simTestDs.id$persScheduleObsCountT1_k100 = sapply(patientDsListt1, nrow) - minFixedMeasurements
+simTestDs.id$persScheduleStopTimeT1_k100 = sapply(patientDsListt1, function(x){max(x$tx_s_years)})
 
 
-#Should this be after 2 months?
-minFixedMeasurements = 5
+ct2 = makeCluster(8)
+registerDoParallel(ct2)
 
+#Technique 2:
+#Use dynamic prediction to choose upper limit
+#Use EKL without denominator for choosing the time point
 persTestDs = simTestDs[simTestDs$visitNumber <= minFixedMeasurements,]
-patientDsList = split(persTestDs, persTestDs$amctx)
-
-for(i in 1:length(patientDsList)){
-  patientDs_i = patientDsList[[i]]
+patientDsListt2 = split(persTestDs, persTestDs$amctx)
+for(i in 1:length(patientDsListt2)){
+  patientDs_i = patientDsListt2[[i]]
   patientId = patientDs_i$amctx[1]
+  print(paste(patientId, "---", simTestDs.id$dynamicMaxRiskTime[i]))
   
   if(!is.na(simTestDs.id$dynamicMaxRiskTime[simTestDs.id$amctx==patientId])){
     repeat{
-      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
-                                survTimes = max(patientDsList[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
-      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsList[[i]]$tx_s_years)>10){
+      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsListt2[[i]], idVar="amctx", 
+                                survTimes = max(patientDsListt2[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
+      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsListt2[[i]]$tx_s_years)>10){
         break
       }
       
-      #Subtracting 2, because we are interested in 2 years survival time
-      temp <- pDynStopTime(simJointModel_replaced, newdata = patientDsList[[i]], Dt = 8, K = 50, seed = 2015, idVar="amctx", maxRiskTime = maxRiskDt)
-      maxInfoTime = temp$summary$times[which(exp(temp$summary$Info) <= (1-maxRisk))[1]]
+      maxInfoTime = pDynSurvTime(1-maxRisk, patientDsListt2[[i]])
+      maxInfoDt = maxInfoTime - max(patientDsListt2[[i]]$tx_s_years)
       
-      if(is.na(maxInfoTime)){
-        maxInfoTime = temp$summary$times[1]
-      }
-      
-      maxInfoDt = maxInfoTime - max(patientDsList[[i]]$tx_s_years)
-      
-      temp2 = dynInfo_mod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K = 50, seed = 2015, idVar="amctx")
-      newTime = temp2$summary$times[which.max(temp2$summary$Info)]
+      dynInfoRes = dynInfo_mod(simJointModel_replaced, newdata = patientDsListt2[[i]], Dt = maxInfoDt, K = 50, seed = 2017, idVar="amctx")
+      info = dynInfoRes$summary$Info
+      newTime = dynInfoRes$summary$times[which.max(info)]
       
       #add new row to the patient DS
       newRow = patientDs_i[1, ]
       newRow$tx_s_years = newTime
       newRow$logCreatinine = rLogCreatinine(patientId = patientId, newRow$tx_s_years)
       
-      patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
+      patientDsListt2[[i]] = rbind(patientDsListt2[[i]], newRow)
+      print(paste("Step", newTime))
     }
-    print(paste("Patient", i))
+    print("Next Patient")
   }
 }
-save.image("Rdata/simCreatinine2.Rdata")
 
-######################################################################
-#### Taking more measurements in between
-######################################################################
-#Step 1: sample b|T>t, Y(t), theta1
+stopCluster(ct2)
+#
+save(patientDsListt2, file = "Rdata/technique2.Rdata")
 
+simTestDs.id$persScheduleObsCountT2 = sapply(patientDsListt2, nrow) - minFixedMeasurements
+simTestDs.id$persScheduleStopTimeT2 = sapply(patientDsListt2, function(x){max(x$tx_s_years)})
 
-#Step 2: sample T|T>t
+result = data.frame(offset=numeric(), nObs=numeric())
+result = rbind(result, cbind(offset=simTestDs.id$fixedScheduleStopTime[-13]-simTestDs.id$dynamicMaxRiskTime[-13],
+                             nObs=simTestDs.id$fixedScheduleObsCount[-13]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT2[-13]-simTestDs.id$dynamicMaxRiskTime[-13],
+                             nObs=simTestDs.id$persScheduleObsCountT2[-13]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT1[-13]-simTestDs.id$dynamicMaxRiskTime[-13],
+                             nObs=simTestDs.id$persScheduleObsCountT1[-13]))
+result$method = rep(c("Fixed", "InfoY", "InfoYandT"), each = nrow(simTestDs.id[-13,]))
+result$offset = result$offset * 365
+ggplot(data=result) + geom_boxplot(aes(method, offset)) + scale_y_continuous(breaks = seq(-100, 400, 30))
+ggplot(data=result) + geom_boxplot(aes(method, nObs))
+
+#Technique 3:
+#Use own dynamic prediction to choose upper limit
+#Use EKL without denominator for choosing the time point
+ct3 = makeCluster(8)
+registerDoParallel(ct3)
+
+persTestDs = simTestDs[simTestDs$visitNumber <= minFixedMeasurements,]
+patientDsListt3 = split(persTestDs, persTestDs$amctx)
+for(i in 1:length(patientDsListt3)){
+  patientDs_i = patientDsListt3[[i]]
+  patientId = patientDs_i$amctx[1]
+  print(paste(patientId, "---", simTestDs.id$dynamicMaxRiskTime[i]))
+  
+  if(!is.na(simTestDs.id$dynamicMaxRiskTime[simTestDs.id$amctx==patientId])){
+    repeat{
+      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsListt2[[i]], idVar="amctx", 
+                                survTimes = max(patientDsListt2[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
+      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsListt2[[i]]$tx_s_years)>10){
+        break
+      }
+      
+      maxInfoTime = pDynSurvTime(1-maxRisk, patientDsListt2[[i]])
+      maxInfoDt = maxInfoTime - max(patientDsListt2[[i]]$tx_s_years)
+      
+      dynInfoRes = dynInfoPar(simJointModel_replaced, newdata = patientDsListt3[[i]], Dt = maxInfoDt, K = 100, seed = 2017, idVar="amctx")
+      info = dynInfoRes$summary$Info
+      newTime = dynInfoRes$summary$times[which.max(info)]
+      
+      #add new row to the patient DS
+      newRow = patientDs_i[1, ]
+      newRow$tx_s_years = newTime
+      newRow$logCreatinine = rLogCreatinine(patientId = patientId, newRow$tx_s_years)
+      
+      patientDsListt3[[i]] = rbind(patientDsListt3[[i]], newRow)
+      print(paste("Step", newTime))
+    }
+    print("Next Patient")
+  }
+}
+
+stopCluster(ct2)
+#
+save(patientDsListt2, file = "Rdata/technique2.Rdata")
+
+#################################################
+# OLD CODE
+#################################################
+
+# for(i in 1:length(patientDsList)){
+#   patientDs_i = patientDsList[[i]]
+#   patientId = patientDs_i$amctx[1]
+#   print(paste(patientId, "---", simTestDs.id$dynamicMaxRiskTime[i]))
+#   
+#   if(!is.na(simTestDs.id$dynamicMaxRiskTime[simTestDs.id$amctx==patientId])){
+#     repeat{
+#       dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
+#                                 survTimes = max(patientDsList[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
+#       if((1-dynSurvProbDt)>=maxRisk |  max(patientDsList[[i]]$tx_s_years)>10){
+#         break
+#       }
+#       
+#       #Subtracting 2, because we are interested in 2 years survival time
+#       #temp <- pDynStopTime(simJointModel_replaced, newdata = patientDsList[[i]], Dt = 2, K = 50, seed = 2015, idVar="amctx", maxRiskTime = maxRiskDt)
+#       #maxInfoTime = temp$summary$times[which(exp(temp$summary$Info) <= (1-maxRisk))[1]]
+#       #apply(temp$full.results, 2, function(x){exp(HPDinterval(as.mcmc(x)))})
+#       
+#       #maxInfoTime = temp$summary$times[apply(temp$full.results, 2, function(x){interval = exp(HPDinterval(as.mcmc(x))); (1-maxRisk) > interval[1] & (1-maxRisk) <= interval[2]})][1]
+#       
+#       #if(is.na(maxInfoTime)){
+#       #maxInfoTime = temp$summary$times[1]
+#       #}
+#       
+#       #maxInfoDt = maxInfoTime - max(patientDsList[[i]]$tx_s_years)
+#       
+#       temp2 = dynInfoPar(simJointModel_replaced, newdata = patientDsList[[i]], Dt = 5, K = 50, seed = 2015, idVar="amctx")
+#       #info = temp2$summary$Info
+#       #apply(exp(temp2$full.results), 2, median)/apply(exp(temp2$full.results),2, sd)
+#       #info = exp(temp$summary$Info)/apply(temp2$full.results,2, function(x){tt = HPDinterval(as.mcmc(exp(x))); tt[2]-tt[1]})
+#       info = sapply(1:ncol(temp2$full.results), function(colnum){
+#         info_t = exp(temp2$full.results[, colnum])
+#         interval_90 = HPDinterval(as.mcmc(info_t), prob=0.9)
+#         info_filtered = info_t[info_t >= interval_90[1] & info_t <= interval_90[2]]
+#         mean(info_filtered)/sd(info_filtered)
+#       })
+#       
+#       newTime = temp2$summary$times[which.max(info)]
+#       
+#       #add new row to the patient DS
+#       newRow = patientDs_i[1, ]
+#       newRow$tx_s_years = newTime
+#       newRow$logCreatinine = rLogCreatinine(patientId = patientId, newRow$tx_s_years)
+#       
+#       patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
+#       print(paste("Step", newTime))
+#     }
+#     print("Next Patient")
+#   }
+# }
+
