@@ -22,18 +22,17 @@ ggplot(data=amctx_creatinine, aes(x=tx_s_years,y=value)) + geom_point() + stat_s
 
 #For d_cadaveric or d_type difference evolution
 ggplot(data=amctx_creatinine, aes(x=tx_s_years,y=log(value))) + 
-  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 10, 0.5) + ylab("log(serum creatinine)") + 
-  xlab("tx_s_years") + facet_grid(.~d_cadaveric)
+  geom_line(aes(group=amctx)) + stat_smooth() + ticksX(0, 10, 1) + ylab("log(serum creatinine)") + 
+  xlab("Follow up time (years)") + facet_grid(.~d_cadaveric, labeller = label_both)
 
 #Tiny bit of difference for males and females in terms of where to put the knots
 ggplot(data=amctx_creatinine[amctx_creatinine$tx_s_years<=1,], aes(x=tx_s_years,y=log(value))) + 
-  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 1, 0.05) + ylab("log(serum creatinine)") + 
+  geom_line(aes(group=amctx)) + stat_smooth() + ticksX(0, 1, 0.05) + ylab("log(serum creatinine)") + 
   xlab("tx_s_years") + facet_grid(.~rec_gender)
 
-#Tiny bit of difference for males and females in terms of where to put the knots
 ggplot(data=amctx_creatinine, aes(x=tx_s_years,y=log(value))) + 
-  geom_line(aes(group=amctx)) + stat_smooth() + ticks(0, 2, 0.5) + ylab("log(serum creatinine)") + 
-  xlab("tx_s_years") + facet_grid(.~tx_dgf) + xlim(0,2)
+  geom_line(aes(group=amctx)) + stat_smooth() + ticksX(0, 10, 1) + ylab("log(serum creatinine)") + 
+  xlab("Follow up time (years)") + facet_grid(.~tx_dgf, labeller = label_both)
 
 idList = unique(amctx_creatinine$amctx)
 ggplot(data=amctx_creatinine[amctx$amctx==idList[1],], aes(x=tx_s_days,y=value)) + geom_line()

@@ -2,6 +2,7 @@ source("src/R/Simulation Study/dynInfo_mod.R")
 source("src/R/Simulation Study/dynInfoPar.R")
 source("src/R/Simulation Study/pDynStopTime.R")
 
+avoid = c(10, 13)
 minFixedMeasurements = 15
 
 ct1 = makeCluster(8)
@@ -98,16 +99,18 @@ simTestDs.id$persScheduleObsCountT2 = sapply(patientDsListt2, nrow) - minFixedMe
 simTestDs.id$persScheduleStopTimeT2 = sapply(patientDsListt2, function(x){max(x$tx_s_years)})
 
 result = data.frame(offset=numeric(), nObs=numeric())
-result = rbind(result, cbind(offset=simTestDs.id$fixedScheduleStopTime[-13]-simTestDs.id$dynamicMaxRiskTime[-13],
-                             nObs=simTestDs.id$fixedScheduleObsCount[-13]))
-result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT2[-13]-simTestDs.id$dynamicMaxRiskTime[-13],
-                             nObs=simTestDs.id$persScheduleObsCountT2[-13]))
-result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT1[-13]-simTestDs.id$dynamicMaxRiskTime[-13],
-                             nObs=simTestDs.id$persScheduleObsCountT1[-13]))
-result$method = rep(c("Fixed", "InfoY", "InfoYandT"), each = nrow(simTestDs.id[-13,]))
+result = rbind(result, cbind(offset=simTestDs.id$fixedScheduleStopTime[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$fixedScheduleObsCount[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT2[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT2[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT1[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT1[-avoid]))
+result$method = rep(c("Fixed", "InfoY", "InfoYandT"), each = nrow(simTestDs.id[-avoid,]))
 result$offset = result$offset * 365
-ggplot(data=result) + geom_boxplot(aes(method, offset)) + scale_y_continuous(breaks = seq(-100, 400, 30))
-ggplot(data=result) + geom_boxplot(aes(method, nObs))
+p1= ggplot(data=result) + geom_boxplot(aes(method, offset)) + scale_y_continuous(breaks = seq(-100, 400, 20)) + ylab("Offset(days)")
+p2 = ggplot(data=result) + geom_boxplot(aes(method, nObs)) + scale_y_continuous(breaks = seq(0, 30, 1)) + ylab("Number of observations")
+multiplot(plotlist = list(p1, p2), cols=2)
+
 
 #Technique 3:
 #Use own dynamic prediction to choose upper limit
@@ -124,17 +127,18 @@ for(i in 1:length(patientDsListt3)){
   
   if(!is.na(simTestDs.id$dynamicMaxRiskTime[simTestDs.id$amctx==patientId])){
     repeat{
-      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsListt2[[i]], idVar="amctx", 
-                                survTimes = max(patientDsListt2[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
-      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsListt2[[i]]$tx_s_years)>10){
+      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsListt3[[i]], idVar="amctx", 
+                                survTimes = max(patientDsListt3[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
+      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsListt3[[i]]$tx_s_years)>10){
         break
       }
       
-      maxInfoTime = pDynSurvTime(1-maxRisk, patientDsListt2[[i]])
-      maxInfoDt = maxInfoTime - max(patientDsListt2[[i]]$tx_s_years)
+      maxInfoTime = pDynSurvMaxRisk(1-maxRisk, patientDsListt3[[i]], maxRiskDt = maxRiskDt)
+      maxInfoDt = maxInfoTime - max(patientDsListt3[[i]]$tx_s_years)
       
-      dynInfoRes = dynInfoPar(simJointModel_replaced, newdata = patientDsListt3[[i]], Dt = maxInfoDt, K = 100, seed = 2017, idVar="amctx")
-      info = dynInfoRes$summary$Info
+      dynInfoRes = dynInfoPar(simJointModel_replaced, newdata = patientDsListt3[[i]], Dt = maxInfoDt, K = 50, seed = 2017, idVar="amctx")
+      #info = dynInfoRes$summary$Info
+      info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
       newTime = dynInfoRes$summary$times[which.max(info)]
       
       #add new row to the patient DS
@@ -149,9 +153,88 @@ for(i in 1:length(patientDsListt3)){
   }
 }
 
-stopCluster(ct2)
-#
-save(patientDsListt2, file = "Rdata/technique2.Rdata")
+stopCluster(ct3)
+save(patientDsListt3, file = "Rdata/technique3.Rdata")
+
+simTestDs.id$persScheduleObsCountT3 = sapply(patientDsListt3, nrow) - minFixedMeasurements
+simTestDs.id$persScheduleStopTimeT3 = sapply(patientDsListt3, function(x){max(x$tx_s_years)})
+
+result = data.frame(offset=numeric(), nObs=numeric())
+result = rbind(result, cbind(offset=simTestDs.id$fixedScheduleStopTime[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$fixedScheduleObsCount[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT3[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT3[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT2[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT2[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT1[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT1[-avoid]))
+result$method = rep(c("Fixed", "InfoYandTM2" , "InfoY", "InfoYandT"), each = nrow(simTestDs.id[-avoid,]))
+result$offset = result$offset * 365
+ggplot(data=result) + geom_boxplot(aes(method, offset)) + scale_y_continuous(breaks = seq(-100, 400, 30))
+ggplot(data=result) + geom_boxplot(aes(method, nObs))
+
+
+#Technique 4:
+#Use own dynamic prediction to choose upper limit
+#Use EKL without denominator for choosing the time point
+ct4 = makeCluster(8)
+registerDoParallel(ct4)
+
+persTestDs = simTestDs[simTestDs$visitNumber <= minFixedMeasurements,]
+patientDsListt4 = split(persTestDs, persTestDs$amctx)
+for(i in 1:length(patientDsListt4)){
+  patientDs_i = patientDsListt4[[i]]
+  patientId = patientDs_i$amctx[1]
+  print(paste(patientId, "---", simTestDs.id$dynamicMaxRiskTime[i]))
+  
+  if(!is.na(simTestDs.id$dynamicMaxRiskTime[simTestDs.id$amctx==patientId])){
+    repeat{
+      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsListt4[[i]], idVar="amctx", 
+                                survTimes = max(patientDsListt4[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
+      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsListt4[[i]]$tx_s_years)>10){
+        break
+      }
+      
+      maxInfoTime = pDynSurvMaxRisk(1-maxRisk, patientDsListt4[[i]], maxRiskDt = maxRiskDt)
+      maxInfoDt = maxInfoTime - max(patientDsListt4[[i]]$tx_s_years)
+      
+      dynInfoRes = dynInfo_mod(simJointModel_replaced, newdata = patientDsListt4[[i]], Dt = maxInfoDt, K = 50, seed = 2017, idVar="amctx")
+      #info = dynInfoRes$summary$Info
+      info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
+      newTime = dynInfoRes$summary$times[which.max(info)]
+      
+      #add new row to the patient DS
+      newRow = patientDs_i[1, ]
+      newRow$tx_s_years = newTime
+      newRow$logCreatinine = rLogCreatinine(patientId = patientId, newRow$tx_s_years)
+      
+      patientDsListt4[[i]] = rbind(patientDsListt4[[i]], newRow)
+      print(paste("Step", newTime))
+    }
+    print("Next Patient")
+  }
+}
+
+stopCluster(ct4)
+save(patientDsListt4, file = "Rdata/technique4.Rdata")
+
+simTestDs.id$persScheduleObsCountT4 = sapply(patientDsListt4, nrow) - minFixedMeasurements
+simTestDs.id$persScheduleStopTimeT4 = sapply(patientDsListt4, function(x){max(x$tx_s_years)})
+
+result = data.frame(offset=numeric(), nObs=numeric())
+result = rbind(result, cbind(offset=simTestDs.id$fixedScheduleStopTime[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$fixedScheduleObsCount[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT4[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT4[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT3[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT3[-avoid]))
+result = rbind(result, cbind(offset=simTestDs.id$persScheduleStopTimeT2[-avoid]-simTestDs.id$dynamicMaxRiskTime[-avoid],
+                             nObs=simTestDs.id$persScheduleObsCountT2[-avoid]))
+result$method = rep(c("Fixed", "U2", "U3" , "U1"), each = nrow(simTestDs.id[-avoid,]))
+result$offset = result$offset * 365
+ggplot(data=result) + geom_boxplot(aes(method, offset)) + scale_y_continuous(breaks = seq(-100, 600, 30))
+ggplot(data=result) + geom_boxplot(aes(method, nObs)) + scale_y_continuous(breaks = seq(0, 30, 1))
+
 
 #################################################
 # OLD CODE

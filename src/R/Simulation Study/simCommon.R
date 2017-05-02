@@ -26,11 +26,15 @@ plotDynamicSurvival = function(patientId){
 
 simJointModel_replaced = replaceMCMCContents(mvJoint_creatinine_tdboth_training, jmbayes_creatinine_tdboth_training)
 
-invDynSurvival <- function (t, u, patientDs) {
-  u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", survTimes = t)$summaries[[1]][1, "Median"],3)
+invDynSurvival <- function (t, u, patientDs, lasttime) {
+  u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", last.time = lasttime, survTimes = t)$summaries[[1]][1, "Median"],3)
 }
 
-pDynSurvTime = function(survProb, patientDs){
+invDynSurvLastTime <- function (lasttime, u, patientDs, maxRiskDt) {
+  u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", last.time = lasttime, survTimes = lasttime + maxRiskDt)$summaries[[1]][1, "Median"],3)
+}
+
+pDynSurvMaxRisk = function(survProb, patientDs, maxRiskDt){
   #Return the time at which the dynamic survival probability is say 90%
   
   Low = max(patientDs$tx_s_years) + 1e-05
@@ -39,8 +43,35 @@ pDynSurvTime = function(survProb, patientDs){
   
   repeat{
     tries = tries + 1
+    Root <- try(uniroot(invDynSurvLastTime, interval = c(Low, Up), 
+                        u = survProb, patientDs = patientDs, maxRiskDt = maxRiskDt)$root, TRUE)
+    
+    if(inherits(Root, "try-error")){
+      if(tries >= 40){
+        return(NA)
+      }else{
+        Up = Up + 0.25    
+      }
+    }else{
+      return(Root)
+    }
+  }
+}
+
+pDynSurvTime = function(survProb, patientDs, lasttime=NULL){
+  #Return the time at which the dynamic survival probability is say 90%
+  
+  Low = max(patientDs$tx_s_years) + 1e-05
+  if(!is.null(lasttime)){
+    Low = Low + lasttime
+  }
+  Up <- 10
+  tries  = 0
+  
+  repeat{
+    tries = tries + 1
     Root <- try(uniroot(invDynSurvival, interval = c(Low, Up), 
-                        u = survProb, patientDs = patientDs)$root, TRUE)
+                        u = survProb, patientDs = patientDs, lasttime = lasttime)$root, TRUE)
     
     if(inherits(Root, "try-error")){
       if(tries >= 40){

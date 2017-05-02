@@ -11,7 +11,7 @@ multiplot(plotlist = lapply(simTestDs.id$amctx, plotTrueLongitudinal), cols = 3)
 multiplot(plotlist = lapply(simTestDs.id$amctx, plotTrueSurvival), cols = 3)
 
 #The maximum risk for now is 20%. i.e. we want survival prob as 87.5% at 6 months
-maxRisk = 0.125
+maxRisk = 0.1
 maxRiskDt = 0.5
 
 simTestDs.id$marginalMaxRiskTime = foreach(i=1:nrow(simTestDs.id),.combine='c', 
@@ -41,6 +41,7 @@ fineSimTestDs = data.frame(amctx = rep(simTestDs.id$amctx, each=length(testTimes
 
 fineSimTestDs$logCreatinine = c(do.call(cbind, lapply(simTestDs.id$amctx, rLogCreatinine, testTimes, T)))
 
+#First method to get dynamic max risk time
 cl = makeCluster(8)
 registerDoParallel(cl)
 dynamicTrueSurvProb = foreach(time=testTimes, .packages = c("splines", "JMbayes")) %dopar%{
@@ -60,4 +61,27 @@ for(i in 1:length(testTimes)){
   simTestDs.id$dynamicMaxRiskTime[indexOfInterest] = testTimes[i]
 }
 
-save.image("Rdata/simCreatinine.Rdata")
+#Second method to get dynamic max risk time
+cl = makeCluster(8)
+registerDoParallel(cl)
+dynamicTrueSurvProb2 = foreach(time=testTimes, .packages = c("splines", "JMbayes")) %dopar%{
+  patientDs = fineSimTestDs[fineSimTestDs$tx_s_years <= time,]
+  
+  by(patientDs, patientDs$amctx, function(ds){
+    survivalFunc(max(ds$tx_s_years)+maxRiskDt, ds$amctx[1])/survivalFunc(max(ds$tx_s_years), ds$amctx[1])
+  })
+}
+stopCluster(cl)
+
+simTestDs.id$dynamicMaxRiskTime2 = NA
+for(i in 1:length(testTimes)){
+  riskProbs = 1 - sapply(1:nrow(simTestDs.id), function(index){
+    dynamicTrueSurvProb2[[i]][[index]]
+  })
+  
+  indexOfInterest = is.na(simTestDs.id$dynamicMaxRiskTime2) & riskProbs >= maxRisk
+  simTestDs.id$dynamicMaxRiskTime2[indexOfInterest] = testTimes[i]
+}
+
+
+save.image("Rdata/simCreatinine_90_pt5.Rdata")
