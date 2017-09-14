@@ -1,6 +1,6 @@
 library(ggplot2)
 library(doParallel)
-registerDoParallel(cores = 8)
+registerDoParallel(cores = detectCores())
 
 ##############################################
 # Load the data set and check missing data....no missing for this one
@@ -39,7 +39,7 @@ amctx$tx_s_years = amctx$tx_s_days/365
 #############
 # Subject 316 has negative rec_bmi. make it positive
 ###############
-amctx[amctx$amctx == 316, "rec_bmi"] = abs(amctx[amctx$amctx == 316, "rec_bmi"])
+amctx$rec_bmi[amctx$amctx == 316] = abs(amctx$rec_bmi[amctx$amctx == 316])
 
 ##############################################
 # create a data set for survival analysis. 
@@ -49,8 +49,9 @@ amctx[amctx$amctx == 316, "rec_bmi"] = abs(amctx[amctx$amctx == 316, "rec_bmi"])
 # removing cols related to longitudinal measurements
 ##############################################
 amctx_cumsum = cumsum(table(amctx$amctx))
-first_row_index_eachsub = c(0,amctx_cumsum[-length(amctx_cumsum)]) + 1
+first_row_index_eachsub = c(0, amctx_cumsum[-length(amctx_cumsum)]) + 1
 amctx.id = amctx[first_row_index_eachsub,]
+colnames(amctx.id)[which(colnames(amctx.id) == "rec_age")] = "rec_age_fwp1"
 
 amctx$rec_age_fwp1 = rep(amctx.id$rec_age, table(amctx$amctx))
 
@@ -87,7 +88,7 @@ creatinine_rep=foreach(i=1:length(idList),.combine='c') %dopar%{
   amctx_creatinine_i = amctx_creatinine[amctx_creatinine$amctx == idList[i],]
   
   freq_time = table(amctx_creatinine_i$tx_s_days)
-  any(freq_time>1)
+  freq_time>1
 }
 
 any(creatinine_rep)

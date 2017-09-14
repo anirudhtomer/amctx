@@ -16,25 +16,20 @@ library(glmnet)
 # (while this is the most prominent predictor for graft failure in the literature).
 # Maybe they are to much correlated? As aformentioned, donorage could be left out.
 
-kmfit = survfit(Surv(years_tx_gl, gl_failure)~1, conf.type="log-log", data=amctx.id)
+kmfit = survfit(Surv(years_tx_gl, gl_failure)~I(tx_dial_days <= 1335), conf.type="log-log", data=amctx.id)
 survminer::ggsurvplot(kmfit, risk.table = T,break.time.by = 1, 
                       xlab = "Time(years)", ylim = c(0.5,1), 
                       conf.int = T)
 
-
-kmfit = survfit(Surv(years_tx_gl, gl_failure)~I(rec_age < tx_dial_days), conf.type="log-log", data=amctx.id)
-survminer::ggsurvplot(kmfit, risk.table = T,break.time.by = 1, 
-                      xlab = "Time(years)", ylim = c(0.5,1), 
-                      conf.int = T)
 
 modelNull = coxph(Surv(days_tx_gl, gl_failure) ~ 1,
                   data = amctx.id)
 
-cox_All = coxph(Surv(days_tx_gl, gl_failure) ~ rec_age + 
+cox_All = coxph(Surv(days_tx_gl, gl_failure) ~ rec_age_fwp1 + 
                    rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
                    tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
-                   rr_sys + rr_dias +
-                   rr_map + tx_dial_days + d_cadaveric,
+                   rr_sys + rr_dias + tx_cit + d_cadaveric + 
+                   rr_map + tx_dial_days ,
                data = amctx.id, x=T, model=T)
 
 #All 3 lead to the same conclusion
@@ -49,7 +44,7 @@ cv.fit = cv.glmnet(model.matrix(cox_All), Surv(amctx.id$years_tx_gl, amctx.id$gl
                    family = "cox", alpha=1, nfolds = 10, lambda = exp(seq(from = -10, to = 8,by = 0.01)),
                    standardize = T)
 plot(cv.fit)
-cv.fit$lambda.min
+log(cv.fit$lambda.min)
 
 fit = glmnet(model.matrix(cox_All), Surv(amctx.id$years_tx_gl, amctx.id$gl_failure), 
              family = "cox", alpha=1, standardize = T)
@@ -59,8 +54,7 @@ attributes(lasso_coef)$Dimnames[[1]][abs(as.matrix(lasso_coef)) > 0]
 
 #Final cox model.
 #rec_age and tx_dial_days are chosen on the basis of KM curves
-coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ rec_age + 
-                   d_age + tx_previoustx + d_gender + 
-                   rec_bmi + tx_pra + I(tx_dial_days/365),
+coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ d_age + tx_previoustx + d_gender + rec_bmi + tx_pra + 
+                   rec_age_fwp1 + I(tx_dial_days/365),
                  data = amctx.id, x=T, model=T)
 save.image("Rdata/feedbackmeeting.Rdata")

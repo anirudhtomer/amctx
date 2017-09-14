@@ -113,7 +113,7 @@ plotPCRFittedCurve = function(models, transform=F, individually=T){
   }
 }
 
-fitUnivaritePCRModel = function(fixedSplineKnots=c(50, 200, 365)/365, 
+fitUnivariatePCRModel = function(fixedSplineKnots=c(50, 200, 365)/365, 
                                        randomSplineKnots=c(50, 200)/365, 
                                        boundaryKnots=range(amctx_pcr$tx_s_years), method="ML"){
   
@@ -194,7 +194,7 @@ plotCreatinineFittedCurve = function(models, transform=F, individually=T){
   }
 }
 
-fitUnivariteCreatinineModel = function(fixedSplineKnots=c(50, 100, 900)/365, 
+fitUnivariateCreatinineModel = function(fixedSplineKnots=c(50, 100, 900)/365, 
                                         randomSplineKnots=c(50, 100)/365, 
                                 boundaryKnots=range(amctx_creatinine$tx_s_years), method="ML"){
   
@@ -209,7 +209,7 @@ fitUnivariteCreatinineModel = function(fixedSplineKnots=c(50, 100, 900)/365,
                                    "), Boundary.knots=c(", paste(boundaryKnots, collapse=", "),"))|amctx", sep=""))
   
   model = lme(fixed=fixedFormula, random = randomFormula, 
-              data=amctx_merged[!is.na(amctx_merged$creatinine),],
+              data=amctx_creatinine,
               control = lmeControl(opt = "optim"), 
               method = method)
   

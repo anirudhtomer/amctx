@@ -1,37 +1,35 @@
-simTestDs$fixed_pt5yr_survprob = NA
-for(j in 1:timesPerSubject){
-  ND = simTestDs[simTestDs$visitNumber <= j, ]
-  futureTimes = max(ND$tx_s_years) + maxRiskDt
-  survivalProb = survfitJM(simJointModel_replaced, ND, idVar="amctx", survTimes = futureTimes)
+cl = makeCluster(detectCores())
+registerDoParallel(cl)
+
+testDs.id$nObs_fixed = NA
+testDs.id$stopTime_fixed = NA
+
+fixed_results = foreach(id=testIdOfInterest[1:30], .packages = c("splines", "JMbayes"), .combine="rbind") %dopar%{
   
-  simTestDs$fixed_pt5yr_survprob[simTestDs$visitNumber==j] = sapply(1:nrow(simTestDs.id), function(i){
-                                    survivalProb$summaries[[i]][1, "Mean"]
-              }, simplify = T)
+  ds_i = simDs[simDs$amctx == id, ]
+  wGamma_i = wGamma[id]
+  b_i = b_creatinine[id, ]
+  
+  nObs_fixed = 0
+  stopTime_fixed = NA
+  for(j in 1:nrow(ds_i)){
+    ds_i_j = ds_i[1:j, ]
+    
+    temp = survfitJM(simJointModel_replaced, ds_i_j, idVar="amctx", survTimes = ds_i$tx_s_years[j] + maxRiskDt)
+    
+    dynSurvProb = temp$summaries[[1]][1, "Median"]
+    
+    nObs_fixed = j
+    if(dynSurvProb <= minSurv){
+      stopTime_fixed = ds_i$tx_s_years[j]
+      break
+    }
+  }
+  
+  return(c(nObs_fixed = nObs_fixed, stopTime_fixed = stopTime_fixed))
 }
 
-simTestDs.id$fixedScheduleStopTime = sapply(simTestDs.id$amctx, function(patientId){
-  patientDs_i = simTestDs[simTestDs$amctx %in% patientId, ]
-  
-  stopVisitIndex = which((1 - patientDs_i$fixed_pt5yr_survprob) >= maxRisk)[1]
-  if(!is.na(stopVisitIndex)){
-    patientDs_i$tx_s_years[stopVisitIndex] 
-  }else{
-    NA
-  }
-})
+testDs.id$nObs_fixed[testIdOfInterest[1:30] - trainingSize] = fixed_results[,"nObs_fixed"]
+testDs.id$stopTime_fixed[testIdOfInterest[1:30] - trainingSize] = fixed_results[,"stopTime_fixed"]
 
-simTestDs.id$fixedScheduleObsCount = sapply(simTestDs.id$amctx, function(patientId){
-  patientDs_i = simTestDs[simTestDs$amctx %in% patientId, ]
-  
-  stopVisitIndex = which((1 - patientDs_i$fixed_pt5yr_survprob) >= maxRisk)[1]
-  if(!is.na(stopVisitIndex)){
-    stopVisitIndex - minFixedMeasurements
-  }else{
-    NA
-  }
-})
-
-save.image("Rdata/simCreatinine.Rdata")
-
-patientId = 583
-multiplot(plotTrueLongitudinal(patientId), plotTrueSurvival(patientId), plotDynamicSurvival(patientId), cols=3)
+stopCluster(cl)

@@ -17,13 +17,14 @@ save.image("Rdata/feedbackmeeting.Rdata")
 ####################################################
 # Multivariate functionality
 ####################################################
+amctx_creatinine$creatinine = amctx_creatinine$value
 mvglmer_creatinine=mvglmer(list(log(creatinine) ~ rec_age_fwp1 + 
                                    rec_gender + d_age + 
                                    tx_pra + ah_nr + tx_dm + 
                                    ns(tx_s_years,knots=c(30, 70, 1000)/365, Boundary.knots = c(0, 6)) * d_cadaveric + 
                                    ns(tx_s_years,knots=c(30, 70, 1000)/365, Boundary.knots = c(0, 6)) * tx_dgf + 
                                    (ns(tx_s_years, knots=c(30, 70)/365, Boundary.knots = c(0, 6))|amctx)),
-                            data = amctx_merged, families = list(gaussian))
+                            data = amctx_creatinine, families = list(gaussian))
 save.image("Rdata/feedbackmeeting.Rdata")
 
 mvJoint_creatinine_tdval=mvJointModelBayes(mvglmer_creatinine, coxModel, timeVar = "tx_s_years",
