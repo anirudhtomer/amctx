@@ -5,55 +5,6 @@ source("src/R/Simulation Study/pDynStopTime.R")
 avoid = c(10, 13)
 minFixedMeasurements = 15
 
-ct1 = makeCluster(8)
-registerDoParallel(ct1)
-#Technique 1:
-#Use dynamic prediction to choose upper limit
-#Use EKL without denominator for choosing the time point
-persTestDs = simTestDs[simTestDs$visitNumber <= minFixedMeasurements,]
-patientDsListt1 = split(persTestDs, persTestDs$amctx)
-for(i in 1:length(patientDsListt1)){
-  patientDs_i = patientDsListt1[[i]]
-  patientId = patientDs_i$amctx[1]
-  print(paste(patientId, "---", simTestDs.id$dynamicMaxRiskTime[i]))
-  
-  if(!is.na(simTestDs.id$dynamicMaxRiskTime[simTestDs.id$amctx==patientId])){
-    repeat{
-      dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsListt1[[i]], idVar="amctx", 
-                   survTimes = max(patientDsListt1[[i]]$tx_s_years)+maxRiskDt)$summaries[[1]][1, "Mean"]
-      if((1-dynSurvProbDt)>=maxRisk |  max(patientDsListt1[[i]]$tx_s_years)>10){
-        break
-      }
-      
-      maxInfoTime = pDynSurvTime(1-maxRisk, patientDsListt1[[i]])
-      maxInfoDt = maxInfoTime - max(patientDsListt1[[i]]$tx_s_years)
-      
-      dynInfoRes = dynInfoPar(simJointModel_replaced, newdata = patientDsListt1[[i]], Dt = maxInfoDt, K = 100, seed = 2017, idVar="amctx")
-      info = dynInfoRes$summary$Info
-      newTime = dynInfoRes$summary$times[which.max(info)]
-      
-      #add new row to the patient DS
-      newRow = patientDs_i[1, ]
-      newRow$tx_s_years = newTime
-      newRow$logCreatinine = rLogCreatinine(patientId = patientId, newRow$tx_s_years)
-      
-      patientDsListt1[[i]] = rbind(patientDsListt1[[i]], newRow)
-      print(paste("Step", newTime))
-    }
-  print("Next Patient")
- }
-}
-stopCluster(ct1)
-
-save(patientDsListt1, file = "Rdata/technique1_k100.Rdata")
-
-simTestDs.id$persScheduleObsCountT1_k100 = sapply(patientDsListt1, nrow) - minFixedMeasurements
-simTestDs.id$persScheduleStopTimeT1_k100 = sapply(patientDsListt1, function(x){max(x$tx_s_years)})
-
-
-ct2 = makeCluster(8)
-registerDoParallel(ct2)
-
 #Technique 2:
 #Use dynamic prediction to choose upper limit
 #Use EKL without denominator for choosing the time point
