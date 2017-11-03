@@ -60,13 +60,48 @@ model_pcr_feedback2 = lme(data=amctx_merged[!is.na(amctx_merged$pcr),],
                           random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
                           control = lmeControl(opt = "optim"), method="ML")
 
-model_pcr_feedback3 = lme(data=amctx_merged[!is.na(amctx_merged$pcr),], 
+model_pcr_feedback3 = lme(data=amctx_pcr, 
                           fixed=log(pcr)~ 
                             rec_gender + d_age + 
                             ns(tx_s_years,knots=c(50, 200, 365)/365) * rec_gender + 
                             ns(tx_s_years,knots=c(50, 200, 365)/365) * d_cadaveric,
                           random = ~ns(tx_s_years,knots=c(50, 200)/365)|amctx,
                           control = lmeControl(opt = "optim"), method="ML")
+
+model_pcr_feedback4 = lme(data=amctx_pcr, 
+                          fixed=log(pcr)~ 
+                            rec_age_fwp1 + 
+                            rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                            tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                            rr_sys + rr_dias + tx_cit + 
+                            rr_map + tx_dial_days + d_cadaveric +
+                            ns(tx_s_years,knots=c(30, 80, 365)/365),
+                          random = ~ns(tx_s_years,knots=c(30, 80, 365)/365)|amctx,
+                          control = lmeControl(opt = "optim"), method="ML")
+
+model_pcr_feedback5 = lme(data=amctx_pcr, 
+                          fixed=log(pcr)~ 
+                            rec_age_fwp1 + 
+                            rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                            tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                            rr_sys + rr_dias + tx_cit + 
+                            rr_map + tx_dial_days + d_cadaveric +
+                            ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 5.5)),
+                          random = ~ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 5.5))|amctx,
+                          control = lmeControl(opt = "optim"), method="ML")
+
+model_pcr_feedback6 = lme(data=amctx_pcr, 
+                          fixed=log(pcr)~ 
+                            rec_age_fwp1 + 
+                            rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                            tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                            rr_sys + rr_dias + tx_cit + 
+                            rr_map + tx_dial_days + d_cadaveric +
+                            ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6)),
+                          random = ~ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6))|amctx,
+                          control = lmeControl(opt = "optim"), method="ML")
+
+
 
 model1 = fitUnivaritePCRModel(fixedSplineKnots = c(30, 70, 1000)/365, 
                               randomSplineKnots = c(30, 70)/365,

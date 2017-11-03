@@ -70,22 +70,120 @@ ggplot(data=amctx_creatinine, aes(x=tx_s_days,y=residuals)) + geom_point() + sta
 ggplot(data=amctx_creatinine, aes(x=tx_s_days,y=residuals)) + geom_point() + stat_smooth() + 
   facet_grid(rec_gender~.) + ticks(200)
 
-# ah_ace + ah_arb = ah_raasi, perhaps it’s better to not include all three in the model. 
+# ah_ace + ah_arb = ah_raasi, perhaps its better to not include all three in the model. 
 # Preferably no medication use is included, since they have not been collected in a dynamic way 
 # (just baseline) and without doses. 
 # tx_hla can be modelled as a continuous parameter
 # (hessel: maybe not statistically correct, but this is often done also to reduce parameters and error)  
 # 30 to 60 days for people to change trend
-model_creatinine_feedback1 = lme(data=amctx_merged[!is.na(amctx_merged$creatinine),],
+basic_model = lme(data=amctx_creatinine,
+                  fixed=log(creatinine) ~ ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6)),
+                  random = ~ns(tx_s_years,knots=c(50, 100)/365, Boundary.knots = c(0.03917808, 6))|amctx,
+                  control = lmeControl(opt = "optim"), method="ML")
+
+main_effect_complex_model = lme(data=amctx_creatinine,
+                        fixed=log(creatinine) ~ rec_age_fwp1 + 
+                          rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                          tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                          rr_sys + rr_dias + tx_cit + 
+                          rr_map + tx_dial_days + d_cadaveric +
+                          ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6)),
+                        random = ~ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))|amctx,
+                        control = lmeControl(opt = "optim"), method="ML")
+
+main_effect_complex_model2 = lme(data=amctx_creatinine,
+                                fixed=log(creatinine) ~ rec_age_fwp1 + 
+                                  rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                                  tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                                  rr_sys + rr_dias + tx_cit + 
+                                  rr_map + tx_dial_days + d_cadaveric +
+                                  ns(tx_s_years,knots=c(30, 70, 900)/365, Boundary.knots = c(0.03917808, 6)),
+                                random = ~ns(tx_s_years,knots=c(30, 70, 900)/365, Boundary.knots = c(0.03917808, 6))|amctx,
+                                control = lmeControl(opt = "optim"), method="ML")
+
+main_effect_complex_model3 = lme(data=amctx_creatinine,
                                  fixed=log(creatinine) ~ rec_age_fwp1 + 
                                    rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
                                    tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
-                                   rr_sys + rr_dias +
+                                   rr_sys + rr_dias + tx_cit + 
                                    rr_map + tx_dial_days + d_cadaveric +
-                                   ns(tx_s_years,knots=c(50, 100, 900)/365) * d_cadaveric + 
-                                   ns(tx_s_years,knots=c(50, 100, 900)/365) * tx_dgf,
-                                 random = ~ns(tx_s_years,knots=c(50, 100)/365)|amctx,
+                                   ns(tx_s_years,knots=c(30, 80, 900)/365, Boundary.knots = c(0.03917808, 6)),
+                                 random = ~ns(tx_s_years,knots=c(30, 80, 900)/365, Boundary.knots = c(0.03917808, 6))|amctx,
                                  control = lmeControl(opt = "optim"), method="ML")
+
+main_effect_complex_model4 = lme(data=amctx_creatinine,
+                                 fixed=log(creatinine) ~ rec_age_fwp1 + 
+                                   rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                                   tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                                   tx_cit + 
+                                   tx_dial_days + d_cadaveric +
+                                   ns(tx_s_years,knots=c(30, 80, 800)/365, Boundary.knots = c(0.03917808, 6)),
+                                 random = ~ns(tx_s_years,knots=c(30, 80, 800)/365, Boundary.knots = c(0.03917808, 6))|amctx,
+                                 control = lmeControl(opt = "optim"), method="ML")
+
+main_effect_complex_model5 = lme(data=amctx_creatinine,
+                                 fixed=log(creatinine) ~ rec_age_fwp1 + 
+                                   rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                                   tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                                   tx_cit + 
+                                   tx_dial_days + d_cadaveric +
+                                   ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6)),
+                                 random = ~ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6))|amctx,
+                                 control = lmeControl(opt = "optim"), method="ML")
+
+
+backward_selec = stepAIC(full_model, direction = "backward")
+
+forward_selec = stepAIC(basic_model, direction = "forward", scope=log(creatinine) ~ rec_age_fwp1 + 
+                          rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                          tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                          rr_sys + rr_dias + tx_cit + 
+                          rr_map + tx_dial_days + d_cadaveric +
+                          rec_age_fwp1*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rec_gender*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_previoustx*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_age*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_gender*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_bmi*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rec_bmi*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_hla*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_pra*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_dgf*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          ah_nr*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_dm*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_hvdis*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rr_sys*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rr_dias*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_cit*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rr_map*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_dial_days*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_cadaveric*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6)))
+
+both_selec = stepAIC(basic_model, direction = "both", scope=log(creatinine) ~ rec_age_fwp1 + 
+                          rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+                          tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+                          rr_sys + rr_dias + tx_cit + 
+                          rr_map + tx_dial_days + d_cadaveric +
+                          rec_age_fwp1*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rec_gender*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_previoustx*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_age*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_gender*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_bmi*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rec_bmi*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_hla*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_pra*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_dgf*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          ah_nr*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_dm*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_hvdis*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rr_sys*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rr_dias*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_cit*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          rr_map*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          tx_dial_days*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6))+
+                          d_cadaveric*ns(tx_s_years,knots=c(50, 100, 900)/365, Boundary.knots = c(0.03917808, 6)))
+
 
 #Despite the fact that BIC advises against interaction of time with tx_dgf, the graphs make it clear that such an interaction is possible
 lme_creatinine_feedback2 = lme(data=amctx_merged[!is.na(amctx_merged$creatinine),],

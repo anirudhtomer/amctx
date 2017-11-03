@@ -21,7 +21,6 @@ survminer::ggsurvplot(kmfit, risk.table = T,break.time.by = 1,
                       xlab = "Time(years)", ylim = c(0.5,1), 
                       conf.int = T)
 
-
 modelNull = coxph(Surv(days_tx_gl, gl_failure) ~ 1,
                   data = amctx.id)
 
@@ -53,8 +52,15 @@ lasso_coef = coef(fit, s = cv.fit$lambda.min)
 attributes(lasso_coef)$Dimnames[[1]][abs(as.matrix(lasso_coef)) > 0]
 
 #Final cox model.
-#rec_age and tx_dial_days are chosen on the basis of KM curves
+#Chosen on the basis of expert advice. besides hardly any good difference between various models
 coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ d_age + tx_previoustx + d_gender + rec_bmi + tx_pra + 
                    rec_age_fwp1 + I(tx_dial_days/365),
                  data = amctx.id, x=T, model=T)
+
+coxModel_clinical = coxph(Surv(years_tx_gl, gl_failure) ~ tx_hla + tx_previoustx + 
+                            tx_cit + tx_dial_days,
+                 data = amctx.id, x=T, model=T)
+
+
 save.image("Rdata/feedbackmeeting.Rdata")
+

@@ -35,12 +35,12 @@ plotRandomProfile = function(count=1, fitted=F, creatinine=T){
   plot<-ggplot(data=dataset[dataset$amctx %in% pid_sample,], aes(x=tx_s_years, y=log(value))) + 
     geom_line(aes(group=amctx))
   if(fitted==T){
-    plot + geom_line(aes(y=fitted, x=tx_s_years, color=amctx, group=amctx)) 
+    plot = plot + geom_line(aes(y=fitted, x=tx_s_years, color=amctx, group=amctx)) 
   }else{
     plot
   }
-  plot + xlab("Time (years)") +  ggtitle(ifelse(creatinine==T, "Creatinine", "PCR"))
-
+  plot = plot + xlab("Time (years)") +  ggtitle(ifelse(creatinine==T, "Creatinine", "PCR"))
+  print(plot)
 }
 
 #######################################################################
@@ -146,15 +146,9 @@ fitUnivariatePCRModel = function(fixedSplineKnots=c(50, 200, 365)/365,
 
 plotCreatinineFittedCurve = function(models, transform=F, individually=T){
 
-  ds = amctx_merged[!is.na(amctx_merged$creatinine),]
-  newDF <- with(ds, expand.grid(tx_s_years = seq(0, 10, length.out = 30),
-                                   rec_gender = "M",
-                                   rec_age_fwp1 = median(amctx.id$rec_age),
-                                   d_age = median(amctx.id$d_age),
-                                   tx_pra = median(amctx.id$tx_pra),
-                                   tx_dm = "no", ah_nr=median(amctx.id$ah_nr),
-                                   tx_dgf = c("no", "yes"), 
-                                   d_cadaveric=c("no", "yes")))
+  ds = amctx_creatinine[!is.na(amctx_creatinine$creatinine),]
+  newDF <- data.frame(tx_s_years = seq(0, 10, length.out = 30),
+                                   amctx.id[1,])
   effectPlotData(models[[1]], newDF, ds)  
   plotData = lapply(models, function(model){
     temp = effectPlotData(model, newDF, ds)

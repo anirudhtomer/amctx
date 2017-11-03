@@ -1,67 +1,9 @@
-
-invDynSurvival <- function (t, u, patientDs, lasttime) {
-  u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", last.time = lasttime, survTimes = t)$summaries[[1]][1, "Median"],4)
-}
-
-invDynSurvLastTime <- function (lasttime, u, patientDs, maxRiskDt) {
-  u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", last.time = lasttime, survTimes = lasttime + maxRiskDt)$summaries[[1]][1, "Median"],4)
-}
-
-pDynSurvMaxRisk = function(survProb, patientDs, maxRiskDt){
-  #Return the time at which the dynamic survival probability is say 90%
-  
-  Low = max(patientDs$tx_s_years) + 1e-05
-  Up <- 10
-  tries  = 0
-  
-  repeat{
-    tries = tries + 1
-    Root <- try(uniroot(invDynSurvLastTime, interval = c(Low, Up), 
-                        u = survProb, patientDs = patientDs, maxRiskDt = maxRiskDt)$root, TRUE)
-    
-    if(inherits(Root, "try-error")){
-      if(tries >= 40){
-        return(NA)
-      }else{
-        Up = Up + 0.25    
-      }
-    }else{
-      return(Root)
-    }
-  }
-}
-
-pDynSurvTime = function(survProb, patientDs, lasttime=NULL){
-
-    Low = max(patientDs$tx_s_years) + 1e-05
-  if(!is.null(lasttime)){
-    Low = Low + lasttime
-  }
-  Up <- 10
-  tries  = 0
-  
-  repeat{
-    tries = tries + 1
-    Root <- try(uniroot(invDynSurvival, interval = c(Low, Up), 
-                        u = survProb, patientDs = patientDs, lasttime = lasttime)$root, TRUE)
-    
-    if(inherits(Root, "try-error")){
-      if(tries >= 40){
-        return(NA)
-      }else{
-        Up = Up + 0.25    
-      }
-    }else{
-      return(Root)
-    }
-  }
-}
-
 plotTrueSurvival = function(patientId){
   
   time = 1:15
   survProb = sapply(time, function(t){
-    survivalFunc(t, patientId)
+    survivalFunc(t, patientId, simDs.id[patientId, ], 
+                 wGamma[patientId], b_creatinine[patientId, ])
   })
   
   byYAxis = (max(survProb) - min(survProb))/10
@@ -165,9 +107,11 @@ hazardFunc = function (s, patientId, simDs.id_i, wGamma_i, b_i) {
   zib_slope_creatinine = zi_s_slope_creatinine %*% b_i[-1] #-1 to ignore intercept
   
   xBetaZb_s_value_creatinine = xi_s_val_creatinine %*% betas_creatinine + zib_val_creatinine
-  xBetaZb_s_slope_creatinine = xi_s_slope_creatinine %*% betas_creatinine[c(8:11, 14:17, 18:21)] + zib_slope_creatinine
+  xBetaZb_s_slope_creatinine = xi_s_slope_creatinine %*% betas_creatinine[18:21] + zib_slope_creatinine
   
-  y_Alpha_creatinine = cbind(xBetaZb_s_value_creatinine, xBetaZb_s_slope_creatinine) %*% getAlphaCreatinine(fittedJointModel)
+  y_Alpha_creatinine = cbind(xBetaZb_s_value_creatinine, xBetaZb_s_slope_creatinine) %*% getAlphaCreatinine(fittedJointModel, weightedOnes = F)
+    #c(1.9,0.6)
+    #
   #y_Alpha_creatinine = cbind(xBetaZb_s_value_creatinine) %*% getAlphaCreatinine(fittedJointModel, weightedOnes = T)
   
   baselinehazard_s * exp(wGamma_i + y_Alpha_creatinine)
@@ -187,6 +131,8 @@ pSurvTime = function(survProb, patientId, simDs.id_i, wGamma_i, b_i){
   Up <- 35
   tries  = 0
   
+  #uniroot(invSurvival, interval = c(Low, Up), 
+  #        u = survProb, i = patientId, simDs.id_i, wGamma_i, b_i)
   repeat{
     tries = tries + 1
     Root <- try(uniroot(invSurvival, interval = c(Low, Up), 
@@ -216,7 +162,7 @@ generateSimLongitudinalData = function(nSub){
   #       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
   # qplot(x = c(amctx.id$d_age, rgamma(nrow(amctx.id), shape=50, scale=1)), 
   #       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-  # qplot(x = c(amctx.id$rec_bmi, rgamma(nrow(amctx.id), shape=50, scale=0.5)), 
+  #qplot(x = c(amctx.id$tx_cit, rgamma(nrow(amctx.id), shape=4, scale=250)), 
   #       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
   # qplot(x = c(amctx.id$tx_dial_days, rgamma(nrow(amctx.id), shape=2.5, scale=500)), 
   #       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
@@ -229,9 +175,13 @@ generateSimLongitudinalData = function(nSub){
   rec_age_fwp1 = rgamma(n = nSub, shape=60, scale = 0.9)
   d_age = rgamma(n = nSub, shape=50, scale = 1)
   rec_bmi = rgamma(n = nSub, shape=50, scale = 0.5)
+  d_bmi = rgamma(n = nSub, shape=50, scale = 0.5)
   tx_dial_days =  rgamma(nSub, shape=2.5, scale=500)
+  tx_hla = rep(0:6, rmultinom(1, nSub, prob=table(amctx.id$tx_hla)/nrow(amctx.id)))
+  tx_cit = rgamma(nSub, shape=4, scale=250)
   tx_previoustx = ifelse(rbinom(nSub, size = 1, table(amctx.id$tx_previoustx)["yes"]/nrow(amctx.id))==1, "yes", "no")
   d_gender = ifelse(rbinom(nSub, size = 1, table(amctx.id$d_gender)["M"]/nrow(amctx.id))==1, yes = "M", "F")
+  tx_hvdis = ifelse(rbinom(nSub, size = 1, table(amctx.id$tx_hvdis)["no"]/nrow(amctx.id))==1, yes = "no", "yes")
   rec_gender = ifelse(rbinom(nSub, size = 1, table(amctx.id$rec_gender)["M"]/nrow(amctx.id))==1, yes = "M", "F")
   d_cadaveric = ifelse(rbinom(nSub, size = 1, table(amctx.id$d_cadaveric)["yes"]/nrow(amctx.id))==1, yes = "yes", "no")
   tx_dgf = ifelse(rbinom(nSub, size = 1, table(amctx.id$tx_dgf)["yes"]/nrow(amctx.id))==1, yes = "yes", "no")
@@ -252,7 +202,7 @@ generateSimLongitudinalData = function(nSub){
   subId <- rep(1:nSub)
   simDs.id = data.frame(amctx = subId, rec_age_fwp1, d_age, rec_bmi, 
                         tx_dial_days, tx_previoustx, d_gender, rec_gender, 
-                        d_cadaveric, tx_dgf, tx_dm, tx_pra, ah_nr)
+                        d_cadaveric, tx_dgf, tx_dm, tx_pra, ah_nr, d_bmi, tx_hla, tx_hvdis, tx_cit)
   
   simDs = data.frame(simDs.id, tx_s_years = sort(longTimes))
   simDs = simDs[order(simDs$amctx, decreasing = F),]
@@ -282,13 +232,30 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   
   simDs.id$years_tx_gl <- NA
   
-  simDs.id$years_tx_gl = sapply(1:nSub, function(i){
+  ct = makeCluster(detectCores())
+  registerDoParallel(ct)
+  
+  #simDs.id$years_tx_gl = sapply(1:nSub, function(i){
+  #  pSurvTime(u[i], i, simDs.id[i, ], wGamma[i], b[i, ])
+  #})
+  
+  simDs.id$years_tx_gl = foreach(i=1:nSub,.combine='c', 
+                                 .export=c("pSurvTime", "invSurvival", "hazardFunc", 
+                                           "weibullShapes", "weibullScales", 
+                                           "fixedValueFormula_creatinine", "fixedSlopeFormula_creatinine",
+                                           "randomValueFormula_creatinine", "randomSlopeFormula_creatinine",
+                                           "betas_creatinine", "getAlphaCreatinine", "fittedJointModel"),
+                                 .packages = c("splines", "JMbayes")) %dopar%{
     pSurvTime(u[i], i, simDs.id[i, ], wGamma[i], b[i, ])
-  })
+  }
+  
   percentageRejected = sum(is.na(simDs.id$years_tx_gl[1:nSub]))/nSub
   
-  if(percentageRejected > 0.3){
-    stop("Too many NA's sampled")
+  stopCluster(ct)
+  
+  print(paste("Percent reject", percentageRejected*100))
+  if(percentageRejected > 0.5){
+     stop(paste("Too many NA's sampled ", percentageRejected*100, "%", sep=""))
   }
   
   pid_to_keep = simDs.id[!is.na(simDs.id$years_tx_gl),]$amctx
@@ -314,7 +281,7 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   # and calculate the observed event times, i.e., min(true event times, censoring times)
   
   #Ctimes <- rexp(trainingSize, 1/mean(prias.id[prias.id$progressed==0,]$progression_time))
-  Ctimes = runif(trainingSize, 0, 17)
+  Ctimes = runif(trainingSize, 0, 15)
   
   trainingDs.id$gl_failure = trainingDs.id$years_tx_gl <= Ctimes
   trainingDs.id$years_tx_gl = pmin(trainingDs.id$years_tx_gl, Ctimes)
@@ -354,21 +321,21 @@ rLogCreatinine =  function(patientId, time, mean=F){
 timesPerSubject = length(generateLongtiudinalTimeBySchedule())
 
 #Formulae for simulation
-fittedJointModel = mvJoint_creatinine_tdboth
+fittedJointModel = mvJoint_creatinine_tdboth_complex
 
-fixedValueFormula_creatinine = ~ 1 + rec_age_fwp1 + rec_gender + d_age + 
-  tx_pra + ah_nr + tx_dm + 
-  ns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6)) * d_cadaveric + 
-  ns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6)) * tx_dgf
+fixedValueFormula_creatinine = ~ 1 + rec_age_fwp1 + 
+  rec_gender + tx_previoustx + d_age + d_gender + d_bmi + rec_bmi + 
+  tx_hla + tx_pra + tx_dgf + ah_nr + tx_dm + tx_hvdis + 
+  tx_cit + tx_dial_days + d_cadaveric +
+  ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6))
 
-randomValueFormula_creatinine = ~ 1 + ns(tx_s_years, knots = c(0.082, 0.192), Boundary.knots = c(0, 6))
+randomValueFormula_creatinine = ~ 1 + ns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6))
 
-fixedSlopeFormula_creatinine = ~ 0 + dns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6)) + 
-  I(dns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6))*(as.numeric(d_cadaveric)-1)) + 
-  I(dns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6))*(as.numeric(tx_dgf)-1))
+fixedSlopeFormula_creatinine = ~ 0 + dns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6))
 
-randomSlopeFormula_creatinine = ~ 0 + dns(tx_s_years, knots = c(0.082, 0.192), Boundary.knots = c(0, 6))
-survivalFormula = ~ 1 + rec_age_fwp1 + d_age + tx_previoustx + d_gender + rec_bmi + tx_pra + I(tx_dial_days/365)
+randomSlopeFormula_creatinine = ~ 0 + dns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6))
+#survivalFormula = ~ 1 + tx_hla + tx_previoustx + d_cadaveric + rec_bmi + tx_cit + tx_dial_days
+survivalFormula = ~ 1 + tx_hla + tx_previoustx + tx_cit + tx_dial_days
 
 gammas = getGamma(fittedJointModel, weightedOnes = F)
 betas_creatinine <- getBetasCreatinine(fittedJointModel, weightedOnes = F)
