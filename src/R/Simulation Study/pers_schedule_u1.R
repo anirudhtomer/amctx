@@ -44,18 +44,18 @@ registerDoParallel(ct)
 for(minFixedMeasurements in c(8)){
   
   for(methodName in c("dynInfo_mod")){
-    #for(methodName in c("dynInfo_mod")){
+    #for(methodName in c("dynInfoPar")){
     
     dynInfoMethod = get(methodName)
     
     persTestDs = simDs[simDs$visitNumber <= minFixedMeasurements & 
-                         simDs$amctx %in% testIdOfInterest,]
+                         simDs$amctx %in% simTestDs.id$amctx,]
     persTestDs$creatinine = exp(persTestDs$logCreatinine)
     patientDsList = split(persTestDs, persTestDs$amctx)
     
     for(i in 1:length(patientDsList)){
       patientId = patientDsList[[i]]$amctx[1]
-      trueStopTime = simTestDs.id$stoptime_True[testDs.id$amctx == patientId]
+      trueStopTime = simTestDs.id$stoptime_True[simTestDs.id$amctx == patientId]
       
       print(paste(patientId, "---", trueStopTime))
       
@@ -71,8 +71,12 @@ for(minFixedMeasurements in c(8)){
         maxInfoTime = pDynSurvTime(minSurv, patientDsList[[i]])
         maxInfoDt = maxInfoTime - lastVisitTime
         
-        dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K = 50, seed = 4001, idVar="amctx")
-        info = dynInfoRes$summary$Info
+        dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K = 25, seed = 4001, idVar="amctx")
+        #info = dynInfoRes$summary$Info
+        #newTime = dynInfoRes$summary$times[which.max(info)]
+        
+        ###########Technique 1a
+        info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
         newTime = dynInfoRes$summary$times[which.max(info)]
         
         #add new row to the patient DS
@@ -87,7 +91,7 @@ for(minFixedMeasurements in c(8)){
       print("Next Patient")
     }
     
-    save(patientDsList, file = paste("Rdata/u1_", methodName, "_6mo_nFix_", minFixedMeasurements, "_risk_", maxRisk*100,"_k50.Rdata", sep=""))
+    save(patientDsList, file = paste("Rdata/u1a_", methodName, "_6mo_nFix_", minFixedMeasurements, "_risk_", maxRisk*100,"_k25.Rdata", sep=""))
   }
 }
 stopCluster(ct)

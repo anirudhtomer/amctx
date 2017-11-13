@@ -34,4 +34,4 @@ simTestDs.id$nObs_fixed = fixed_results[,"nObs_fixed"]
 simTestDs.id$stopTime_fixed = fixed_results[,"stopTime_fixed"]
 
 stopCluster(cl)
-save(simTestDs.id, file="Rdata/creatinine_sim_6month_7.5_percentrisk.Rdata")
+save(simTestDs.id, file="Rdata/creatinine_sim_6month_5_percentrisk.Rdata")

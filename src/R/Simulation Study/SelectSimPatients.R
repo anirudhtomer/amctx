@@ -41,27 +41,23 @@ simTestDs.id = simTestDs.id[order(simTestDs.id$stoptime_True, decreasing = F)[1:
 simTestDs.id = simTestDs.id[order(simTestDs.id$amctx, decreasing = F),]
 testIdOfInterest = simTestDs.id$amctx
 
-save(simTestDs.id, file="Rdata/creatinine_sim_6month_7.5_percentrisk.Rdata")
+save(simTestDs.id, file="Rdata/creatinine_sim_6month_5_percentrisk.Rdata")
 
 #############################################
 #Load the results from Rdata files, 6 months 5% risk
 #############################################
 i = 1
-# minObsArr = c(6,6,10,10,15,15) #in the same order as below
-# for(rdataname in c("u1_dynInfoPar_6mo_nFix_6_k100.Rdata", "u1_dynInfo_mod_6mo_nFix_6_k50.Rdata",
-#                    "u1_dynInfoPar_6mo_nFix_10_k100.Rdata","u1_dynInfo_mod_6mo_nFix_10_k50.Rdata",
-#                    "u1_dynInfoPar_6mo_nFix_15_k50.Rdata", "u1_dynInfo_mod_6mo_nFix_15_k50.Rdata")){
-#   load(paste("Rdata/", rdataname, sep=""))
-minObsArr = c(6,10,10,10,10) #in the same order as below
-for(rdataname in c("u1_dynInfoPar_6mo_nFix_8_k50", "u1_dynInfo_mod_6mo_nFix_8_k50")){
+minObsArr = c(8)
+for(rdataname in c("new/u1_dynInfoPar_6mo_nFix_8_risk_5_k25.Rdata")){
   load(paste("Rdata/", rdataname, sep=""))
 
   simTestDs.id[,paste("nObs_",i, sep="")] = sapply(patientDsList, nrow)
   simTestDs.id[,paste("stopTime_",i, sep="")] = sapply(patientDsList, function(x){max(x$tx_s_years)})
+  simTestDs.id[,paste("diff_",i, sep="")] = simTestDs.id[,paste("stopTime_",i, sep="")] - simTestDs.id$stoptime_True
   
   filter = simTestDs.id$nObs_fixed <= minObsArr[i]
   simTestDs.id[filter, paste("nObs_",i, sep="")] = simTestDs.id$nObs_fixed[filter]
-  simTestDs.id[filter, paste("stopTime_",i, sep="")] = simTestDs.id$stopTime_fixed[filter]
+  simTestDs.id[filter, paste("stopTime_",i, sep="")] = simTestDs.id$stopTime_fixed[filter] - simTestDs.id$stoptime_True[filter]
   
   i = i + 1
 }
