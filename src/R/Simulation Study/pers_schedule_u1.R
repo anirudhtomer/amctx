@@ -62,21 +62,60 @@ for(minFixedMeasurements in c(8)){
       repeat{
         lastVisitTime = max(patientDsList[[i]]$tx_s_years)
         
+        if(lastVisitTime > 10){
+          print("Last visit time > 10; breaking out")
+        }
+        
         dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
                                   survTimes = lastVisitTime + maxRiskDt)$summaries[[1]][1, "Median"]
-        if(dynSurvProbDt <= minSurv | lastVisitTime > 17){
-          break
+        
+        if(dynSurvProbDt <= minSurv){
+          checkFP = c(F,F,F)
+          for(ttt in 1:3){
+            newRow = patientDsList[[i]][1, ]
+            newRow$tx_s_years = max(patientDsList[[i]]$tx_s_years) + 1/365
+            newRow$logCreatinine = rLogCreatinine(newRow$amctx, newRow$tx_s_years)
+            newRow$creatinine = exp(newRow$logCreatinine)
+            patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
+            dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
+                                      survTimes = max(patientDsList[[i]]$tx_s_years) + maxRiskDt)$summaries[[1]][1, "Median"] 
+            
+            checkFP[ttt] = dynSurvProbDt <= minSurv
+            if(checkFP[ttt] == F){
+              print("False positive: cutoff broken")
+              break
+            }  
+          }
+          
+          if(all(checkFP)){
+            print("Cutoff broken 3 times")
+            break
+          }
         }
         
         maxInfoTime = pDynSurvTime(minSurv, patientDsList[[i]])
         maxInfoDt = maxInfoTime - lastVisitTime
         
-        dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K = 25, seed = 4001, idVar="amctx")
-        #info = dynInfoRes$summary$Info
-        #newTime = dynInfoRes$summary$times[which.max(info)]
+        lengthout = 16
+        timesToPred = c()
+        while(lengthout>2){
+          timesToPred = seq(lastVisitTime, maxInfoTime, length.out = lengthout)[-1]
+          if((timesToPred[2]-timesToPred[1])>=1/365){
+            break
+          }
+          lengthout = lengthout/2
+        }
+        
+        if(lengthout==2){
+          print("Another layer of checking FP says truly below cutoff right now")
+          break
+        }
+        
+        dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K =lengthout, seed = 4001, idVar="amctx")
+        info = -dynInfoRes$summary$Info
         
         ###########Technique 1a
-        info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
+        #info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
         newTime = dynInfoRes$summary$times[which.max(info)]
         
         #add new row to the patient DS
@@ -91,7 +130,7 @@ for(minFixedMeasurements in c(8)){
       print("Next Patient")
     }
     
-    save(patientDsList, file = paste("Rdata/u1a_", methodName, "_6mo_nFix_", minFixedMeasurements, "_risk_", maxRisk*100,"_k25.Rdata", sep=""))
+    save(patientDsList, file = paste("Rdata/u1_neg_", methodName, "_6mo_nFix_", minFixedMeasurements, "_risk_", maxRisk*100,"_k15.Rdata", sep=""))
   }
 }
 stopCluster(ct)

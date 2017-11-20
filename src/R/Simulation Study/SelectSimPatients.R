@@ -46,9 +46,11 @@ save(simTestDs.id, file="Rdata/creatinine_sim_6month_5_percentrisk.Rdata")
 #############################################
 #Load the results from Rdata files, 6 months 5% risk
 #############################################
+simTestDs.id$diff_fixed = simTestDs.id$stopTime_fixed - simTestDs.id$stoptime_True
+
 i = 1
 minObsArr = c(8)
-for(rdataname in c("new/u1_dynInfoPar_6mo_nFix_8_risk_5_k25.Rdata")){
+for(rdataname in c("new/u3.Rdata")){
   load(paste("Rdata/", rdataname, sep=""))
 
   simTestDs.id[,paste("nObs_",i, sep="")] = sapply(patientDsList, nrow)
@@ -57,7 +59,8 @@ for(rdataname in c("new/u1_dynInfoPar_6mo_nFix_8_risk_5_k25.Rdata")){
   
   filter = simTestDs.id$nObs_fixed <= minObsArr[i]
   simTestDs.id[filter, paste("nObs_",i, sep="")] = simTestDs.id$nObs_fixed[filter]
-  simTestDs.id[filter, paste("stopTime_",i, sep="")] = simTestDs.id$stopTime_fixed[filter] - simTestDs.id$stoptime_True[filter]
+  simTestDs.id[filter, paste("stopTime_",i, sep="")] = simTestDs.id$stopTime_fixed[filter]
+  simTestDs.id[filter, paste("diff_",i, sep="")] = simTestDs.id$diff_fixed[filter]
   
   i = i + 1
 }

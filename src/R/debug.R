@@ -1,262 +1,94 @@
-source("src/R/common.R")
+tx_s_years = seq(0, 6, by=0.005)
 
-library(MASS)
-library(splines)
+id = 606
+temp_606 = cbind(simDs.id[id,], tx_s_years)
 
-set.seed(1002)
-nSub <- 100
+ds_i = simDs.id[id, ]
+wGamma_i = wGamma[id]
+b_i = b_creatinine[id, ]
 
-fittedJointModel = mvJoint_creatinine_tdboth
 
-generateLongtiudinalTimeBySchedule = function(){
-  #20 times in the first year and then 4 times per year after that
-  years = c(seq(0, 1, length.out = 20), seq(1.25, 10, by=1/4))
-  
-  return(years)
+temp_606$trueSurv = sapply(tx_s_years + maxRiskDt, survivalFunc, i=id, ds_i, wGamma_i, b_i) / sapply(tx_s_years, survivalFunc, i=id, ds_i, wGamma_i, b_i)
+
+temp_606$creatinine = exp(rLogCreatinine(id, tx_s_years, mean = F))
+temp_606$dynamicSurv = sapply(1:nrow(temp_606), function(timeIndex){
+  survfitJM(simJointModel_replaced, temp_606[1:timeIndex,], idVar="amctx", 
+                                           survTimes = temp_606$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
+
+coarse1TimeIndices = seq(1, nrow(temp_606), by=3)
+temp_606$dynamicSurvCoarse1 = NA
+temp_606$dynamicSurvCoarse1[coarse1TimeIndices] = sapply(1:length(coarse1TimeIndices), function(timeIndex){
+  ds = temp_606[coarse1TimeIndices,]
+  survfitJM(simJointModel_replaced, ds[1:timeIndex,], idVar="amctx", 
+            survTimes = ds$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
+
+coarse2TimeIndices = seq(1, nrow(temp_606), by=6)
+temp_606$dynamicSurvCoarse2 = NA
+temp_606$dynamicSurvCoarse2[coarse2TimeIndices] = sapply(1:length(coarse2TimeIndices), function(timeIndex){
+  ds = temp_606[coarse2TimeIndices,]
+  survfitJM(simJointModel_replaced, ds[1:timeIndex,], idVar="amctx", 
+            survTimes = ds$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
+
+coarse3TimeIndices = seq(1, nrow(temp_606), by=10)
+temp_606$dynamicSurvCoarse3 = NA
+temp_606$dynamicSurvCoarse3[coarse3TimeIndices] = sapply(1:length(coarse3TimeIndices), function(timeIndex){
+  ds = temp_606[coarse3TimeIndices,]
+  survfitJM(simJointModel_replaced, ds[1:timeIndex,], idVar="amctx", seed = 10,
+            survTimes = ds$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
+
+coarse4TimeIndices = seq(1, nrow(temp_606), by=15)
+temp_606$dynamicSurvCoarse4 = NA
+temp_606$dynamicSurvCoarse4[coarse4TimeIndices] = sapply(1:length(coarse4TimeIndices), function(timeIndex){
+  ds = temp_606[coarse4TimeIndices,]
+  survfitJM(simJointModel_replaced, ds[1:timeIndex,], idVar="amctx", seed = 10,
+            survTimes = ds$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
+
+#3 months = 0.25 year gap
+betweenBurstGap = round(0.5 * nrow(temp_606) / max(tx_s_years))
+burstLength = 10
+withinBurstGap = 1
+
+burst1TimeIndices = c(1)
+while(tail(burst1TimeIndices,1) < nrow(temp_606)){
+  burst1TimeIndices = c(burst1TimeIndices, seq(tail(burst1TimeIndices,1)+1, 
+                                               tail(burst1TimeIndices,1) + burstLength * withinBurstGap, 
+                                               by=withinBurstGap))
+  burst1TimeIndices = c(burst1TimeIndices, tail(burst1TimeIndices,1) + betweenBurstGap)
 }
 
-getBetasCreatinine = function(jointModel, weightedOnes = T){
-  if(weightedOnes){
-    jointModel$statistics$postwMeans$betas1
-  }else{
-    jointModel$statistics$postMeans$betas1
-  }
-}
+burst1TimeIndices = burst1TimeIndices[burst1TimeIndices <= nrow(temp_606)]
 
-getSigmaCreatinine = function(jointModel, weightedOnes = T){
-  if(weightedOnes){
-    jointModel$statistics$postwMeans$sigma1
-  }else{
-    jointModel$statistics$postMeans$sigma1
-  }
-}
+temp_606$dynamicSurvBurst1 = NA
+temp_606$dynamicSurvBurst1[burst1TimeIndices] = sapply(1:length(burst1TimeIndices), function(timeIndex){
+  ds = temp_606[burst1TimeIndices,]
+  survfitJM(simJointModel_replaced, ds[1:timeIndex,], idVar="amctx", seed = 10,
+            survTimes = ds$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
 
-getD = function(jointModel, weightedOnes = T){
-  if(weightedOnes){
-    jointModel$statistics$postwMeans$D
-  }else{
-    jointModel$statistics$postMeans$D
-  }
-}
 
-getGamma = function(jointModel, weightedOnes = T){
-  if(weightedOnes){
-    jointModel$statistics$postwMeans$gammas
-  }else{
-    jointModel$statistics$postMeans$gammas
-  }
-}
+fixedIndices = sapply(generateLongtiudinalTimeBySchedule()[1:40], function(x){max(which(tx_s_years<=x))})
+temp_606$dynamicSurvFixed = NA
+temp_606$dynamicSurvFixed[fixedIndices] = sapply(1:length(fixedIndices), function(timeIndex){
+  ds = temp_606[fixedIndices,]
+  survfitJM(simJointModel_replaced, ds[1:timeIndex,], idVar="amctx", seed = 10,
+            survTimes = ds$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
 
-getAlphaCreatinine = function(jointModel, weightedOnes = T){
-  if(weightedOnes){
-    jointModel$statistics$postwMeans$alphas
-  }else{
-    jointModel$statistics$postMeans$alphas
-  }
-}
+patientDsList[[paste(id)]]$dynamicSurv = sapply(1:nrow(patientDsList[[paste(id)]]), function(timeIndex){
+  survfitJM(simJointModel_replaced, patientDsList[[paste(id)]][1:timeIndex,], idVar="amctx",seed=95,
+            survTimes = patientDsList[[paste(id)]]$tx_s_years[timeIndex] + maxRiskDt)$summaries[[1]][1, "Median"]})
 
-getBsGammas = function(jointModel, weightedOnes = T){
-  if(weightedOnes){
-    jointModel$statistics$postwMeans$Bs_gammas
-  }else{
-    jointModel$statistics$postMeans$Bs_gammas
-  }
-}
+trueStopTime = simTestDs.id$stoptime_True[simTestDs.id$amctx==id]
+xlim = trueStopTime + 0.5
 
-hazardFunc = function (s, i) {
-  baselinehazard_s = (weibullShape/weibullScale)*(s/weibullScale)^(weibullShape-1)
-  
-  df_s = data.frame(tx_s_years = s, rec_age_fwp1 = simDs.id[i, "rec_age"], simDs.id[i, ])
-  
-  xi_s_val_creatinine = model.matrix(fixedValueFormula_creatinine, df_s)
-  xi_s_slope_creatinine = model.matrix(fixedSlopeFormula_creatinine, df_s)
-  
-  zi_s_val_creatinine = model.matrix(randomValueFormula_creatinine, df_s)
-  zi_s_slope_creatinine = model.matrix(randomSlopeFormula_creatinine, df_s)
-  
-  zib_val_creatinine = zi_s_val_creatinine %*% b_creatinine[i, ]
-  zib_slope_creatinine = zi_s_slope_creatinine %*% b_creatinine[i, -1] #-1 to ignore intercept
-  
-  xBetaZb_s_value_creatinine = xi_s_val_creatinine %*% betas_creatinine + zib_val_creatinine
-  xBetaZb_s_slope_creatinine = xi_s_slope_creatinine %*% betas_creatinine[c(8:11, 14:17, 18:21)] + zib_slope_creatinine
-  
-  y_Alpha_creatinine = cbind(xBetaZb_s_value_creatinine, xBetaZb_s_slope_creatinine) %*% getAlphaCreatinine(fittedJointModel)
-  #y_Alpha_creatinine = cbind(xBetaZb_s_value_creatinine) %*% getAlphaCreatinine(fittedJointModel, weightedOnes = T)
-  
-  baselinehazard_s * exp(wGamma[i] + y_Alpha_creatinine)
-}
+plot_all = ggplot(NULL) + geom_line(data=temp_606, aes(x=tx_s_years, y=trueSurv, colour="True")) + 
+  geom_line(data=temp_606,aes(x=tx_s_years, y=dynamicSurv, colour="Dynamic")) +
+  geom_line(data=temp_606[!is.na(temp_606$dynamicSurvCoarse1),], aes(x=tx_s_years, y=dynamicSurvCoarse1, colour="Coarse1")) +
+  geom_line(data=temp_606[!is.na(temp_606$dynamicSurvCoarse2),], aes(x=tx_s_years, y=dynamicSurvCoarse2, colour="Coarse2")) + 
+  geom_line(data=temp_606[!is.na(temp_606$dynamicSurvCoarse3),], aes(x=tx_s_years, y=dynamicSurvCoarse3, colour="Coarse3")) + 
+  geom_line(data=temp_606[!is.na(temp_606$dynamicSurvCoarse4),], aes(x=tx_s_years, y=dynamicSurvCoarse4, colour="Coarse4")) + 
+  geom_line(data=temp_606[!is.na(temp_606$dynamicSurvBurst1),], aes(x=tx_s_years, y=dynamicSurvBurst1, colour="Burst1")) + 
+  geom_line(data=temp_606[!is.na(temp_606$dynamicSurvFixed),], aes(x=tx_s_years, y=dynamicSurvFixed, colour="Fixed")) +
+  geom_line(data=patientDsList[[paste(id)]], aes(x=tx_s_years, y=dynamicSurv, colour="Personalized")) + 
+  geom_hline(yintercept = 0.95) + xlim(0, 6) + ylim(0.925, 1) + 
+  xlab("Time (years)") + ylab("Conditional Survival Probability")
 
-survivalFunc <- function (t, i) {
-  exp(-integrate(hazardFunc, lower = 0, upper = t, i)$value)
-}
-
-invSurvival <- function (t, u, i) {
-  integrate(hazardFunc, lower = 0, upper = t, i)$value + log(u)
-}
-
-pSurvTime = function(survProb, patientId){
-  Low = 1e-05
-  Up <- 25
-  tries  = 0
-  
-  repeat{
-    tries = tries + 1
-    Root <- try(uniroot(invSurvival, interval = c(Low, Up), 
-                        u = survProb, i = patientId)$root, TRUE)
-    
-    if(inherits(Root, "try-error")){
-      if(tries >= 5){
-        return(NA)
-      }else{
-        Up = Up + 0.5    
-      }
-    }else{
-      return(Root)
-    }
-  }
-}
-
-###############################################
-# parameters for the linear mixed effects model
-###############################################
-fixedValueFormula_creatinine = ~ 1 + rec_age_fwp1 + rec_gender + d_age + 
-  tx_pra + ah_nr + tx_dm + 
-  ns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6)) * d_cadaveric + 
-  ns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6)) * tx_dgf
-
-randomValueFormula_creatinine = ~ 1 + ns(tx_s_years, knots = c(0.082, 0.192), Boundary.knots = c(0, 6))
-
-fixedSlopeFormula_creatinine = ~ 0 + dns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6)) + 
-  I(dns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6))*(as.numeric(d_cadaveric)-1)) + 
-  I(dns(tx_s_years,knots=c(0.082, 0.192, 2.740), Boundary.knots = c(0, 6))*(as.numeric(tx_dgf)-1))
-
-randomSlopeFormula_creatinine = ~ 0 + dns(tx_s_years, knots = c(0.082, 0.192), Boundary.knots = c(0, 6))
-
-###############################################
-# Design matrices for the longitudinal measurement model
-###############################################
-#For the age variable check the simulated and observed data distribution
-longTimes = do.call(what = c, lapply(1:nSub, function(x){generateLongtiudinalTimeBySchedule()}))
-
-timesPerSubject = length(longTimes)/nSub
-
-# qplot(x = c(amctx.id$rec_age, rgamma(nrow(amctx.id), shape=60, scale = 0.9)), 
-#       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-# qplot(x = c(amctx.id$d_age, rgamma(nrow(amctx.id), shape=50, scale=1)), 
-#       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-# qplot(x = c(amctx.id$rec_bmi, rgamma(nrow(amctx.id), shape=50, scale=0.5)), 
-#       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-# qplot(x = c(amctx.id$tx_dial_days, rgamma(nrow(amctx.id), shape=2.5, scale=500)), 
-#       geom="density", color=c(rep("Obs", nrow(amctx.id)), rep("Sim", nrow(amctx.id))))
-# qplot(x = c(amctx.id$tx_pra[amctx.id$tx_pra>0], 
-#             rgamma(nrow(amctx.id[amctx.id$tx_pra>0,]), shape=1, scale=12) + 2), 
-#       geom="density", color=c(rep("Obs", nrow(amctx.id[amctx.id$tx_pra>0,])), 
-#                               rep("Sim", nrow(amctx.id[amctx.id$tx_pra>0,]))))
-
-#make rec_age_fwp1 for the longitudinal data set
-rec_age = rgamma(n = nSub, shape=60, scale = 0.9)
-d_age = rgamma(n = nSub, shape=50, scale = 1)
-rec_bmi = rgamma(n = nSub, shape=50, scale = 0.5)
-tx_dial_days =  rgamma(nSub, shape=2.5, scale=500)
-tx_previoustx = ifelse(rbinom(nSub, size = 1, table(amctx.id$tx_previoustx)["yes"]/nrow(amctx.id))==1, "yes", "no")
-d_gender = ifelse(rbinom(nSub, size = 1, table(amctx.id$d_gender)["M"]/nrow(amctx.id))==1, yes = "M", "F")
-rec_gender = ifelse(rbinom(nSub, size = 1, table(amctx.id$rec_gender)["M"]/nrow(amctx.id))==1, yes = "M", "F")
-d_cadaveric = ifelse(rbinom(nSub, size = 1, table(amctx.id$d_cadaveric)["yes"]/nrow(amctx.id))==1, yes = "yes", "no")
-tx_dgf = ifelse(rbinom(nSub, size = 1, table(amctx.id$tx_dgf)["yes"]/nrow(amctx.id))==1, yes = "yes", "no")
-tx_dm = ifelse(rbinom(nSub, size = 1, table(amctx.id$tx_dm)["yes"]/nrow(amctx.id))==1, yes = "yes", "no")
-
-prob_ahnr = table(amctx.id$ah_nr)/nrow(amctx.id)
-ahnr_counts = rmultinom(1, size = nSub, prob_ahnr)
-ah_nr = sample(unlist(lapply(1:5, function(x){
-  count = ahnr_counts[x, 1]
-  return(rep(x-1, count))
-})), 
-replace = F)
-
-#tx_pra-first sample the zeros
-tx_pra_zeros = rep(0, sum(rbinom(nSub, size=1, table(amctx.id$tx_pra==0)["TRUE"]/nrow(amctx.id))))
-tx_pra = sample(c(tx_pra_zeros, round(rgamma(nSub-length(tx_pra_zeros), shape=1, scale=12))+2), replace = F)
-
-subId <- rep(1:nSub)
-simDs.id = data.frame(amctx = subId, rec_age_fwp1=rec_age, rec_age, d_age, rec_bmi, 
-                      tx_dial_days, tx_previoustx, d_gender, rec_gender, 
-                      d_cadaveric, tx_dgf, tx_dm, tx_pra, ah_nr)
-
-simDs = data.frame(amctx = rep(subId, each=timesPerSubject), 
-                   rec_age_fwp1 = rep(rec_age, each=timesPerSubject),
-                   rec_age = rep(rec_age, each=timesPerSubject),
-                   d_age = rep(d_age, each=timesPerSubject),
-                   rec_bmi = rep(rec_bmi, each=timesPerSubject),
-                   tx_dial_days = rep(tx_dial_days, each=timesPerSubject),
-                   tx_previoustx = rep(tx_previoustx, each=timesPerSubject),
-                   d_gender = rep(d_gender, each=timesPerSubject),
-                   rec_gender = rep(rec_gender, each=timesPerSubject),
-                   d_cadaveric = rep(d_cadaveric, each=timesPerSubject),
-                   tx_dgf = rep(tx_dgf, each=timesPerSubject),
-                   tx_dm = rep(tx_dm, each=timesPerSubject),
-                   ah_nr = rep(ah_nr, each=timesPerSubject),
-                   tx_pra = rep(tx_pra, each=timesPerSubject),
-                   visitNumber = rep(1:timesPerSubject, nSub),
-                   tx_s_years = longTimes, logCreatinine=NA)
-
-X_creatinine = model.matrix(fixedValueFormula_creatinine, data = simDs)
-Z_creatinine = model.matrix(randomValueFormula_creatinine, data = simDs)
-
-betas_creatinine <- getBetasCreatinine(fittedJointModel, weightedOnes = T)
-sigma.y_creatinine <- getSigmaCreatinine(fittedJointModel, weightedOnes = T)
-
-D <- getD(fittedJointModel, weightedOnes = T)
-b_creatinine <- mvrnorm(nSub, mu = rep(0, nrow(D)), D)
-
-Zb_creatinine = unlist(lapply(1:nSub,function(i){
-  Z_creatinine[((i-1)*timesPerSubject + 1):(i*timesPerSubject),] %*% b_creatinine[i, ]
-}))
-
-xBetaZb_creatinine = X_creatinine %*% betas_creatinine + Zb_creatinine
-simDs$logCreatinine = rnorm(length(xBetaZb_creatinine), xBetaZb_creatinine, sigma.y_creatinine)
-
-ggplot(data=simDs, aes(x=tx_s_years, y=logCreatinine)) + 
-  geom_line(aes(group=amctx)) + stat_smooth()
-
-# design matrix for the survival model
-survivalFormula = ~ 1 + rec_age + d_age + tx_previoustx + d_gender + rec_bmi + tx_pra + I(tx_dial_days/365)
-W <- model.matrix(survivalFormula, data = simDs.id)[,-1] #drop the intercept
-gammas = getGamma(fittedJointModel, weightedOnes = T)
-wGamma <- as.vector(W %*% gammas)
-
-#weibullShape = 1.70
-#weibullScale = 8000
-#6250
-
-# bsGammas = getBsGammas(fittedJointModel)
-# time = seq(1, 10, by=0.1)
-# baselineHazard_fitted = exp(splineDesign(fittedJointModel$control$knots, x = time) %*% bsGammas)
-# 
-# pdf_sim = dweibull(time, shape = weibullShape, scale = weibullScale)
-# survival_sim = (1-pweibull(q = time,shape= weibullShape, scale = weibullScale))
-# baselinehazard_sim = pdf_sim/survival_sim
-# 
-# p1 = qplot(y=c(baselinehazard_sim, baselineHazard_fitted), x = c(time,time), geom="line", 
-#            color=c(rep("sim", length(time)), rep("Fitted", length(time)))) + theme(legend.position="none")
-# p2 = qplot(x = rweibull(10000, shape = weibullShape, scale = weibullScale), geom="density")
-# multiplot(p1, p2, cols=2)
-
-#weibullShape = 1.40
-#weibullScale = 80000
-
-weibullShape = 2.40
-weibullScale = 1000
-
-#set.seed(432)
-u <- runif(nSub)
-simDs.id$years_tx_gl <- NA
-simDs.id$years_tx_gl = foreach(i=1:nSub,.combine='c', 
-                               .packages = c("splines", "JMbayes")) %do%{
-                                 pSurvTime(u[i], i)
-                               }
-sum(is.na(simDs.id$years_tx_gl[1:nSub]))/nSub
-
-failureTimeCompDs = data.frame(failuretime = c(simDs.id$years_tx_gl, amctx.id$years_tx_gl[amctx.id$gl_failure==1]),
-                               type = c(rep("Sim",nrow(simDs.id)), rep("Obs", length(amctx.id$years_tx_gl[amctx.id$gl_failure==1]))))
-
-ggplot(data = failureTimeCompDs) + geom_density(aes(x=failuretime, color=type, fill=type), alpha=0.3)
+ggplotly(plot_all)

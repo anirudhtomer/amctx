@@ -41,7 +41,7 @@ registerDoParallel(ct)
 for(minFixedMeasurements in c(8)){
   
   for(methodName in c("dynInfoPar")){
-    #for(methodName in c("dynInfoPar")){
+    #for(methodName in c("dynInfo_mod")){
     
     dynInfoMethod = get(methodName)
     
@@ -62,7 +62,7 @@ for(minFixedMeasurements in c(8)){
           
           dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
                                     survTimes = lastVisitTime + maxRiskDt)$summaries[[1]][1, "Median"]
-          if(dynSurvProbDt <= minSurv | lastVisitTime > 17){
+          if(dynSurvProbDt <= minSurv | lastVisitTime > 15){
             break
           }
           
@@ -70,13 +70,15 @@ for(minFixedMeasurements in c(8)){
           maxInfoDt = maxInfoTime - max(patientDsList[[i]]$tx_s_years)
           
           dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K = 25, seed = 4001, idVar="amctx")
-          info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
+          #info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
+          info = dynInfoRes$summary$Info
           newTime = dynInfoRes$summary$times[which.max(info)]
           
           #add new row to the patient DS
           newRow = patientDsList[[i]][1, ]
           newRow$tx_s_years = newTime
           newRow$logCreatinine = rLogCreatinine(patientId, newTime)
+          newRow$creatinine = exp(newRow$logCreatinine)
           
           patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
           print(paste("Step", newTime))
@@ -84,7 +86,7 @@ for(minFixedMeasurements in c(8)){
         print("Next Patient")
       }
     }
-    save(patientDsList, file = paste("Rdata/u2a_", methodName, "_k25.Rdata", sep=""))
+    save(patientDsList, file = paste("Rdata/u2_", methodName, "_k25.Rdata", sep=""))
   }
 }
 stopCluster(ct)
