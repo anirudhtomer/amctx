@@ -14,7 +14,7 @@ for(minFixedMeasurements in c(2)){
     
     print(paste(patientId, "---", trueStopTime))
     
-    #if(trueStopTime > generateLongtiudinalTimeBySchedule()[minFixedMeasurements]){
+    #if(trueStopTime <= generateLongtiudinalTimeBySchedule()[minFixedMeasurements]){
     if(T){
       repeat{
         lastVisitTime = max(patientDsList[[i]]$tx_s_years)
@@ -53,8 +53,11 @@ for(minFixedMeasurements in c(2)){
         lengthout = 16
         timesToPred = c()
         while(lengthout>2){
+#          timesToPred = seq(max(patientDsList[[i]]$tx_s_years), 
+#                            pDynSurvTime(minSurv, patientDsList[[i]]), length.out = lengthout)[-1]
           timesToPred = seq(max(patientDsList[[i]]$tx_s_years), 
-                            pDynSurvTime(minSurv, patientDsList[[i]]), length.out = lengthout)[-1]
+                            min(max(patientDsList[[i]]$tx_s_years) + 0.5, pDynSurvTime(minSurv, patientDsList[[i]])), 
+                                length.out = lengthout)[-1]
           if((timesToPred[2]-timesToPred[1])>=1/365){
             break
           }
@@ -99,7 +102,7 @@ for(minFixedMeasurements in c(2)){
         print(paste("Step", newRow$tx_s_years))
       }
       print("Next Patient")
-      save(patientDsList, file = paste("Rdata/u3_lessminObs.Rdata", sep=""))
+      save(patientDsList, file = paste("Rdata/u3_2Obs_2pt5Risk_6monthlookup.Rdata", sep=""))
     }else{
       print("Too early true stop time")
     }

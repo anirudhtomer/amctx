@@ -13,7 +13,7 @@ trainingSize = nrow(trainingDs.id)
 
 #The maximum risk for now is 10%. i.e. we want survival prob as 90% at 12 months
 #maxRisk = 0.1
-maxRisk = 0.05
+maxRisk = 0.025
 minSurv = 1-maxRisk
 #maxRiskDt = 1
 maxRiskDt = 0.5
@@ -41,96 +41,5 @@ simTestDs.id = simTestDs.id[order(simTestDs.id$stoptime_True, decreasing = F)[1:
 simTestDs.id = simTestDs.id[order(simTestDs.id$amctx, decreasing = F),]
 testIdOfInterest = simTestDs.id$amctx
 
-save(simTestDs.id, file="Rdata/creatinine_sim_6month_5_percentrisk.Rdata")
+save(simTestDs.id, file="Rdata/creatinine_sim_6month_2pt5_percentrisk.Rdata")
 
-#############################################
-#Load the results from Rdata files, 6 months 5% risk
-#############################################
-simTestDs.id$diff_fixed = simTestDs.id$stopTime_fixed - simTestDs.id$stoptime_True
-
-i = 1
-minObsArr = c(8)
-for(rdataname in c("new/u3.Rdata")){
-  load(paste("Rdata/", rdataname, sep=""))
-
-  simTestDs.id[,paste("nObs_",i, sep="")] = sapply(patientDsList, nrow)
-  simTestDs.id[,paste("stopTime_",i, sep="")] = sapply(patientDsList, function(x){max(x$tx_s_years)})
-  simTestDs.id[,paste("diff_",i, sep="")] = simTestDs.id[,paste("stopTime_",i, sep="")] - simTestDs.id$stoptime_True
-  
-  filter = simTestDs.id$nObs_fixed <= minObsArr[i]
-  simTestDs.id[filter, paste("nObs_",i, sep="")] = simTestDs.id$nObs_fixed[filter]
-  simTestDs.id[filter, paste("stopTime_",i, sep="")] = simTestDs.id$stopTime_fixed[filter]
-  simTestDs.id[filter, paste("diff_",i, sep="")] = simTestDs.id$diff_fixed[filter]
-  
-  i = i + 1
-}
-
-simTestDs.id_long=reshape(simTestDs.id, direction='long', idvar='amctx', timevar = "methodNumber",
-                   varying=list(seq(17, ncol(simTestDs.id), 2), seq(18, ncol(simTestDs.id), 2)),
-                   v.names=c('nObs', 'stopTime'))
-simTestDs.id_long = simTestDs.id_long[order(simTestDs.id_long$amctx, simTestDs.id_long$methodNumber, na.last = T), ]
-simTestDs.id_long$offset = simTestDs.id_long$stopTime - simTestDs.id_long$stoptime_True
-simTestDs.id_long$offset_fail = simTestDs.id_long$stopTime - simTestDs.id_long$years_tx_gl
-
-temp = simTestDs.id_long[simTestDs.id_long$methodNumber %in% c(1,3,4),]
-#temp = simTestDs.id_long[simTestDs.id_long$methodNumber <= 2,]
-temp$methodNumber = factor(temp$methodNumber, labels =  c("Fixed", "Personalized_1", "Personalized_2"))
-#temp$methodNumber = factor(temp$methodNumber, labels =  c("Fixed", "Personalized"))
-a = ggplot(data=temp) + 
-  geom_boxplot(aes(reorder(methodNumber, offset, FUN=median), offset_fail)) + 
-  xlab("Method") + ylab("Stop time - True fail time; [years]") + coord_flip()
-
-b = ggplot(data=temp) + 
-  geom_boxplot(aes(reorder(methodNumber, offset, FUN=median), offset)) + 
-  xlab("Method") + ylab("Stop time - True threshold time; [years]") + coord_flip()
-
-c = ggplot(data=temp) + 
-  geom_boxplot(aes(reorder(methodNumber, nObs, FUN=median), nObs)) + 
-  xlab("Method") + ylab("Number of observations") + coord_flip()
-
-multiplot(a,b,c)
-
-#Create two data sets, simTestDs, simTestDs.id
-
-# #Second method to get dynamic max risk time
-# 
-# #We can split the entire time range into very small times and 
-# #check where exactly is the maxRisk with maxRiskDt not possible
-# testTimes = seq(0, 17, 0.01)
-# fineSimTestDs = data.frame(amctx = rep(simTestDs.id$amctx, each=length(testTimes)), 
-#                    rec_age_fwp1 = rep(simTestDs.id$rec_age, each=length(testTimes)),
-#                    rec_age = rep(simTestDs.id$rec_age, each=length(testTimes)),
-#                    d_age = rep(simTestDs.id$d_age, each=length(testTimes)),
-#                    rec_bmi = rep(simTestDs.id$rec_bmi, each=length(testTimes)),
-#                    tx_dial_days = rep(simTestDs.id$tx_dial_days, each=length(testTimes)),
-#                    tx_previoustx = rep(simTestDs.id$tx_previoustx, each=length(testTimes)),
-#                    d_gender = rep(simTestDs.id$d_gender, each=length(testTimes)),
-#                    rec_gender = rep(simTestDs.id$rec_gender, each=length(testTimes)),
-#                    d_cadaveric = rep(simTestDs.id$d_cadaveric, each=length(testTimes)),
-#                    tx_dgf = rep(simTestDs.id$tx_dgf, each=length(testTimes)),
-#                    tx_dm = rep(simTestDs.id$tx_dm, each=length(testTimes)),
-#                    ah_nr = rep(simTestDs.id$ah_nr, each=length(testTimes)),
-#                    tx_pra = rep(simTestDs.id$tx_pra, each=length(testTimes)),
-#                    visitNumber = rep(1:length(testTimes), nrow(simTestDs.id)),
-#                    tx_s_years = rep(testTimes, nrow(simTestDs.id)))
-# 
-# fineSimTestDs$logCreatinine = c(do.call(cbind, lapply(simTestDs.id$amctx, rLogCreatinine, testTimes, T)))
-# 
-# cl = makeCluster(8)
-# registerDoParallel(cl)
-# dynamicTrueSurvProb = foreach(time=testTimes, .packages = c("splines", "JMbayes")) %dopar%{
-#   patientDs = fineSimTestDs[fineSimTestDs$tx_s_years <= time,]                        
-#   survfitJM(simJointModel_replaced, patientDs, idVar="amctx", 
-#             survTimes = max(patientDs$tx_s_years)+maxRiskDt)
-# }
-# stopCluster(cl)
-# 
-# simTestDs.id$dynamicMaxRiskTime = NA
-# for(i in 1:length(testTimes)){
-#   riskProbs = 1 - sapply(1:nrow(simTestDs.id), function(index){
-#     dynamicTrueSurvProb[[i]]$summaries[[index]][1, "Mean"]
-#   })
-#   
-#   indexOfInterest = is.na(simTestDs.id$dynamicMaxRiskTime) & riskProbs >= maxRisk
-#   simTestDs.id$dynamicMaxRiskTime[indexOfInterest] = testTimes[i]
-# }
