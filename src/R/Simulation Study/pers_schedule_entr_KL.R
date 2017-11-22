@@ -1,6 +1,34 @@
 source("src/R/Simulation Study/utilFunctions/dynInfoPar.R")
 source("src/R/Simulation Study/utilFunctions/dynInfo_mod.R")
 
+invDynSurvLastTime <- function (lasttime, u, patientDs, maxRiskDt) {
+  u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", last.time = lasttime, survTimes = lasttime + maxRiskDt)$summaries[[1]][1, "Median"], 4)
+}
+
+pDynSurvMaxRisk = function(survProb, patientDs, maxRiskDt){
+  #Return the time at which the dynamic survival probability is say 90%
+  
+  Low = max(patientDs$tx_s_years) + 1e-05
+  Up <- 20
+  tries  = 0
+  
+  repeat{
+    tries = tries + 1
+    Root <- try(uniroot(invDynSurvLastTime, interval = c(Low, Up), 
+                        u = survProb, patientDs = patientDs, maxRiskDt = maxRiskDt)$root, TRUE)
+    
+    if(inherits(Root, "try-error")){
+      if(tries >= 40){
+        return(NA)
+      }else{
+        Up = Up + 0.25    
+      }
+    }else{
+      return(Root)
+    }
+  }
+}
+
 invDynSurvival <- function (t, u, patientDs, lasttime) {
   u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", last.time = lasttime, survTimes = t)$summaries[[1]][1, "Median"],4)
 }
@@ -41,9 +69,9 @@ pDynSurvTime = function(survProb, patientDs, lasttime=NULL){
 ct = makeCluster(detectCores())
 registerDoParallel(ct)
 
-for(minFixedMeasurements in c(8)){
+for(minFixedMeasurements in c(6)){
   
-  for(methodName in c("dynInfo_mod")){
+  for(methodName in c("dynInfoPar")){
     #for(methodName in c("dynInfoPar")){
     
     dynInfoMethod = get(methodName)
@@ -93,7 +121,8 @@ for(minFixedMeasurements in c(8)){
           }
         }
         
-        maxInfoTime = pDynSurvTime(minSurv, patientDsList[[i]])
+        #maxInfoTime = pDynSurvTime(minSurv, patientDsList[[i]])
+        maxInfoTime = pDynSurvMaxRisk(minSurv, patientDsList[[i]], maxRiskDt = maxRiskDt)
         maxInfoDt = maxInfoTime - lastVisitTime
         
         lengthout = 16
@@ -112,10 +141,10 @@ for(minFixedMeasurements in c(8)){
         }
         
         dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K =lengthout, seed = 4001, idVar="amctx")
-        info = -dynInfoRes$summary$Info
+        #info = -dynInfoRes$summary$Info
         
         ###########Technique 1a
-        #info = exp(dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(x))})
+        info = exp(-dynInfoRes$summary$Info)/apply(dynInfoRes$full.results,2, function(x){mad(exp(-x))})
         newTime = dynInfoRes$summary$times[which.max(info)]
         
         #add new row to the patient DS
@@ -128,9 +157,8 @@ for(minFixedMeasurements in c(8)){
         print(paste("Step", newTime))
       }
       print("Next Patient")
+      save(patientDsList, file = paste("Rdata/u1a_neg_", methodName, "_6mo_nFix_", minFixedMeasurements, "_risk_", maxRisk*100,"_k15.Rdata", sep=""))
     }
-    
-    save(patientDsList, file = paste("Rdata/u1_neg_", methodName, "_6mo_nFix_", minFixedMeasurements, "_risk_", maxRisk*100,"_k15.Rdata", sep=""))
   }
 }
 stopCluster(ct)

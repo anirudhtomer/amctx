@@ -1,7 +1,7 @@
 ct = makeCluster(detectCores())
 registerDoParallel(ct)
 
-for(minFixedMeasurements in c(2)){
+for(minFixedMeasurements in c(8)){
   
   persTestDs = simDs[simDs$visitNumber <= minFixedMeasurements & 
                        simDs$amctx %in% simTestDs.id$amctx,]
@@ -53,11 +53,11 @@ for(minFixedMeasurements in c(2)){
         lengthout = 16
         timesToPred = c()
         while(lengthout>2){
-#          timesToPred = seq(max(patientDsList[[i]]$tx_s_years), 
-#                            pDynSurvTime(minSurv, patientDsList[[i]]), length.out = lengthout)[-1]
           timesToPred = seq(max(patientDsList[[i]]$tx_s_years), 
-                            min(max(patientDsList[[i]]$tx_s_years) + 0.5, pDynSurvTime(minSurv, patientDsList[[i]])), 
-                                length.out = lengthout)[-1]
+                            pDynSurvTime(minSurv, patientDsList[[i]]), length.out = lengthout)[-1]
+#          timesToPred = seq(max(patientDsList[[i]]$tx_s_years), 
+#                            min(max(patientDsList[[i]]$tx_s_years) + 0.5, pDynSurvTime(minSurv, patientDsList[[i]])), 
+#                                length.out = lengthout)[-1]
           if((timesToPred[2]-timesToPred[1])>=1/365){
             break
           }
@@ -93,8 +93,11 @@ for(minFixedMeasurements in c(2)){
         
         infoArr = probArr / apply(futureY$all.vals[[1]], 2, mad)
         
+        print(paste(lengthout, which.max(probArr), which.max(infoArr), sep="-"))
+        
         newRow = patientDsList[[i]][1, ]
-        newRow$tx_s_years = timesToPred[which.max(infoArr)]
+        #newRow$tx_s_years = timesToPred[which.max(infoArr)]
+        newRow$tx_s_years = timesToPred[which.max(probArr)]
         newRow$logCreatinine = rLogCreatinine(newRow$amctx, newRow$tx_s_years)
         newRow$creatinine = exp(newRow$logCreatinine)
         patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
@@ -102,7 +105,7 @@ for(minFixedMeasurements in c(2)){
         print(paste("Step", newRow$tx_s_years))
       }
       print("Next Patient")
-      save(patientDsList, file = paste("Rdata/u3_2Obs_2pt5Risk_6monthlookup.Rdata", sep=""))
+      save(patientDsList, file = paste("Rdata/u3_8Obs_pt05Risk_maxProb.Rdata", sep=""))
     }else{
       print("Too early true stop time")
     }
