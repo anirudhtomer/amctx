@@ -46,7 +46,7 @@ dynInfo_mod <- function (object, newdata, Dt, K = 5, M = 500, idVar = "id",
     respVar <- all.vars(TermsX)[1L]
     maxTime <- max(object$y$Time)
     max_time <- max(newdata[[timeVar]])
-    times <- seq(max_time, min(max_time + Dt, max_time * 1.1), len = K + 1)[-1L]
+    times <- seq(max_time, max_time + Dt, len = K + 1)[-1L]
     ntimes <- length(times)
     data.id <- newdata[tapply(row.names(newdata), id, tail, n = 1L),]
     data.s <- data.id[rep(1:nrow(data.id), each = object$control$GQsurv.k), ]

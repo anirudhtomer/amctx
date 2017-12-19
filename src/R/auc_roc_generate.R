@@ -90,3 +90,31 @@ for(i in 1:nrep){
 
 tEnd = Sys.time()
 save.image("Rdata/auc.Rdata")
+
+TstartTimes = c(0.5, 1, 1.5, 2, 2.5, 3)
+pcrOnlyAUC = rep(NA, length(TstartTimes))
+creatinineOnlyAUC =  rep(NA, length(TstartTimes))
+pcrCreatinineBothAUC =  rep(NA, length(TstartTimes))
+i = 1
+for(Tstart in TstartTimes){
+  pcrOnlyAUC[i] = aucJM_mod(mvJoint_pcr_tdboth_complex, newdata = amctx_merged_scaled,
+          Tstart = Tstart, Dt = 0.5, idVar="amctx")$auc
+  pcrCreatinineBothAUC[i] = aucJM_mod(mvJoint_pcr_creatinine_tdboth_complex, newdata = amctx_merged_scaled,
+                            Tstart = Tstart, Dt = 0.5, idVar="amctx")$auc
+  creatinineOnlyAUC[i] = aucJM_mod(mvJoint_creatinine_tdboth_complex, newdata = amctx_merged_scaled,
+            Tstart = Tstart, Dt = 0.5, idVar="amctx")$auc
+  i =i +1
+}
+
+aucdf = data.frame(time=rep(TstartTimes, 3), 
+                    auc=c(pcrCreatinineBothAUC, creatinineOnlyAUC, pcrOnlyAUC),
+                    Biomarker=rep(c("Both", "Only Creatinine", "Only PCR"), each=length(TstartTimes)))
+
+ggplot(data=aucdf) + geom_line(aes(x=time, y=auc, color=Biomarker)) +
+  geom_point(aes(x=time, y=auc, color=Biomarker)) +
+  xlab("Time (years)") + ylab("AUC (6 months)") + ylim(0,1) + 
+  theme(text = element_text(size=13), axis.text.x = element_text(size=13)) +
+  scale_x_continuous(breaks = TstartTimes) +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(filename = "report/hessel/images/auc.eps", width=8.27, height=9.69/2, device=cairo_ps)

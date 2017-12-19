@@ -46,7 +46,7 @@ dynInfoPar <- function (object, newdata, Dt, K = 5, M = 500, idVar = "id", maxRi
   respVar <- all.vars(TermsX)[1L]
   maxTime <- max(object$y$Time)
   max_time <- max(newdata[[timeVar]])
-  times <- seq(max_time, min(max_time + Dt, max_time * 1.1), len = K + 1)[-1L]
+  times <- seq(max_time, max_time + Dt, len = K + 1)[-1L]
   ntimes <- length(times)
   data.id <- newdata[tapply(row.names(newdata), id, tail, n = 1L),]
   data.s <- data.id[rep(1:nrow(data.id), each = object$control$GQsurv.k), ]
@@ -213,6 +213,7 @@ dynInfoPar <- function (object, newdata, Dt, K = 5, M = 500, idVar = "id", maxRi
                            b.old1 <- b.new1
                            # Step 2-3: Simulate T_j^* from [T_j^* | T_j > t, {Y_j(t), y_j(u)}]
                            prop_Tj <- runif(1, times[ti], maxTime * 1.1)
+                           #prop_Tj <- runif(1, maxTime, 6)
                            aa <- min(exp(log.p_Tj(prop_Tj) - log.p_Tj(old_Tj)), 1)
                            ind <- runif(1) <= aa
                            if (!is.na(ind) && ind) {

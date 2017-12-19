@@ -1,7 +1,6 @@
 source("src/R/common.R")
 
 library(MASS)
-library(glmnet)
 
 #Further feedback came back from Clinicians.
 # Some considerations to leave out covariates on the basis of knowledge:
@@ -16,10 +15,28 @@ library(glmnet)
 # (while this is the most prominent predictor for graft failure in the literature).
 # Maybe they are to much correlated? As aformentioned, donorage could be left out.
 
-kmfit = survfit(Surv(years_tx_gl, gl_failure)~I(tx_dial_days <= 1335), conf.type="log-log", data=amctx.id)
-survminer::ggsurvplot(kmfit, risk.table = T,break.time.by = 1, 
-                      xlab = "Time(years)", ylim = c(0.5,1), 
-                      conf.int = T)
+kmfit = survfit(Surv(years_tx_gl, gl_failure)~1, conf.type="log-log", data=amctx.id)
+
+plotdf = data.frame(time=kmfit$time, n.risk=kmfit$n.risk, surv=kmfit$surv, 
+                    upper=kmfit$upper, lower=kmfit$lower)
+
+timeIndices = sapply(0:12, function(x){which.min(abs(plotdf$time-x))})
+
+nrisktimes = c(min(plotdf$time), 1:12)
+nrisk = plotdf$n.risk[timeIndices]
+
+ggplot(data=plotdf) + geom_line(aes(x=time, y=surv)) +
+  geom_ribbon(aes(x=time, ymin=lower, ymax=upper),fill = "grey", alpha=0.6) +
+  scale_y_continuous(breaks=seq(0,1,0.1),limits = c(0,1)) + 
+  scale_x_continuous(breaks = seq(0,12,1), limits=c(0,12)) + 
+  geom_hline(yintercept = 0) + geom_vline(xintercept = 0) +
+  geom_segment(aes(x = 0, y = 0.1, xend=12, yend = 0.1)) + 
+  annotate("text",x=6, y=0.13, size=4.5, label="Number of at-risk patients") +
+  annotate("text", x = nrisktimes, y = 0.05, label = paste(nrisk)) +
+  theme(text = element_text(size=13), axis.text=element_text(size=13)) + 
+  ylab("Survival Probability") + xlab("Time (years)")
+
+ggsave(filename = "report/hessel/images/km.eps", width=8.27, height=9.69/2, device=cairo_ps)
 
 modelNull = coxph(Surv(days_tx_gl, gl_failure) ~ 1,
                   data = amctx.id)
@@ -57,9 +74,11 @@ coxModel = coxph(Surv(years_tx_gl, gl_failure) ~ d_age + tx_previoustx + d_gende
                    rec_age_fwp1 + I(tx_dial_days/365),
                  data = amctx.id, x=T, model=T)
 
+amctx.id_scaled = amctx_merged_scaled[!duplicated(amctx_merged_scaled$amctx),]
+
 coxModel_clinical = coxph(Surv(years_tx_gl, gl_failure) ~ tx_hla + tx_previoustx + 
                             tx_cit + tx_dial_days,
-                 data = amctx.id, x=T, model=T)
+                 data = amctx.id_scaled, x=T, model=T)
 
 
 save.image("Rdata/feedbackmeeting.Rdata")
