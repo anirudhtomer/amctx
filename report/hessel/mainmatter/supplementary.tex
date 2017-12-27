@@ -1,0 +1,66 @@
+% !TEX root =  ../ms.tex
+
+\section{Supplementary}
+\label{suppl : jm_framework}
+We start with the definition of the joint modeling framework that will be used to fit a model to the available dataset, and then to plan biomarker measurements for future patients. Let $T_i^*$ denote the true graft failure time, and $C_i$ denote the censoring time for the $i$-th patient enrolled in the kidney transplant aftercare. Let $T_i = \min(T^*_i, C_i)$ denote the observed graft failure time and $\delta_i = I(T^*_i < C_i)$ the event indicator for the $i$-th patient. $I(\cdot)$ is an indicator function that takes the value 1 when $T^*_i < C_i$ and 0 otherwise. Let $\bmath{y}_{i1}$ and $\bmath{y}_{i2}$ denote the log transformed $n_{i1} \times 1$ and $n_{i2} \times 1$ vectors of protein creatinine ratio (PCR) and serum creatinine (SCr) levels, respectively, for the $i$-th patient. For a sample of $n$ patients the observed data is denoted by $\mathcal{D}_n = \{T_i, \delta_i, \bmath{y}_{i1}, \bmath{y}_{i2}; i = 1, \ldots, n\}$.
+
+The two outcomes, PCR and SCr are continuous in nature and thus to model them the joint model utilizes a multivariate linear mixed effects model (LMM). The PCR outcome is modeled as (model for SCr is same):
+\begin{equation*}
+\begin{split}
+y_{i1}(t) &= m_{i1}(t) + \varepsilon_{i1}(t)\\
+&=\bmath{x}_{i}^T(t) \bmath{\beta}_1 + \bmath{z}_{i}^T(t) \bmath{b}_{i1} + \varepsilon_{i1}(t),
+\end{split}
+\end{equation*}
+
+where $\bmath{x}_{i}(t)$ denotes the row vector of the common design matrix for fixed effects of both PCR and SCr, respectively, and $\bmath{z}_{i}(t)$ denotes the same for random effects. The corresponding fixed effects are denoted by $\bmath{\beta}_1$, $\bmath{\beta}_2$ and the complete vector of random effects by $\bmath{b}_i = (\bmath{b}_{i1}, \bmath{b}_{i2})^T$. The complete vector of random effects are assumed to be normally distributed with mean zero and variance-covariance matrix $\bmath{D}$. The true and unobserved PCR and SCr levels at time $t$ are denoted by $m_{i1}(t)$ and $m_{i2}(t)$, respectively. Unlike $y_{i1}(t), y_{i2}(t)$, the former are not contaminated with the measurement errors $\varepsilon_{i1}(t)$ and $\varepsilon_{i2}(t)$, respectively. The errors are assumed to be normally distributed with mean zero and variance $\sigma_1^2$ and $\sigma_2^2$, respectively, and are independent of the random effects $\bmath{b}_{i1}, \bmath{b}_{i2}$.
+
+To model the effect of the two longitudinal outcomes on hazard of graft failure, joint models utilize a relative risk sub-model. The hazard of graft failure for patient $i$ at any time point $t$, denoted by $h_i(t)$, depends on a function of subject specific linear predictors $m_{i1}(t)$, $m_{i2}$ and/or the random effects:
+\begin{align*}
+h_i(t \mid \mathcal{M}_{i1}(t), \mathcal{M}_{i2}(t), \bmath{w}_i) &= \lim_{\Delta t \to 0} \frac{\mbox{Pr}\big\{t \leq T^*_i < t + \Delta t \mid T^*_i \geq t, \mathcal{M}_{i1}(t), \mathcal{M}_{i2}(t), \bmath{w}_i\big\}}{\Delta t}\\
+&=h_0(t) \exp\big[\bmath{\gamma}^T\bmath{w}_i + f_1\{\mathcal{M}_{i1}(t), \bmath{b}_{i1}, \bmath{\alpha}_1\} + f_2\{\mathcal{M}_{i1}(t), \bmath{b}_{i2}, \bmath{\alpha}_2\}\big], \quad t>0,
+\end{align*}
+where $\mathcal{M}_{i1}(t) = \{m_{i1}(v), 0\leq v \leq t\}$, and $\mathcal{M}_{i2}(t) = \{m_{i2}(v), 0\leq v \leq t\}$ denote the history of the underlying PCR and SCr levels, respectively, up to time $t$. The vector of baseline covariates is denoted by $\bmath{w}_i$, and $\bmath{\gamma}$ are the corresponding parameters. The function $f_1(\cdot), f_2(\cdot)$ parametrized by vectors $\bmath{\alpha}_1, \bmath{\alpha}_2$ specify the functional form of PCR and SCr levels \citep{brown2009assessing,rizopoulos2012joint,taylor2013real,rizopoulos2014bma} that are used in the linear predictor of the relative risk model. Some functional forms of PCR, relevant to the problem at hand are the following (functional forms for SCr are similar): 
+\begin{eqnarray*}
+\left \{
+\begin{array}{l}
+f_1\{M_{i1}(t), \bmath{b}_{i1}, \bmath{\alpha}_1\} = \alpha_1 m_{i1}(t),\\
+f_1\{M_{i1}(t), \bmath{b}_{i1}, \bmath{\alpha}_1\} = \alpha_{11} m_{i1}(t) + \alpha_{12} m'_{i1}(t),\quad \text{with}\  m'_{i1}(t) = \frac{\rmn{d}{m_{i1}(t)}}{\rmn{d}{t}}.\\
+\end{array}
+\right.
+\end{eqnarray*}
+These formulations of $f_1(\cdot)$ postulate that the hazard of graft failure at time $t$ may be associated with the underlying level $m_{i1}(t)$ of PCR (and/or SCr) at $t$, or with both the level and velocity $m'_{i1}(t)$ of PCR (and/or SCr) at $t$. Lastly, $h_0(t)$ is the baseline hazard at time $t$, and is modeled flexibly using P-splines. More specifically:
+\begin{equation*}
+\log{h_0(t)} = \gamma_{h_0,0} + \sum_{q=1}^Q \gamma_{h_0,q} B_q(t, \bmath{v}),
+\end{equation*}
+where $B_q(t, \bmath{v})$ denotes the $q$-th basis function of a B-spline with knots $\bmath{v} = v_1, \ldots, v_Q$ and vector of spline coefficients $\gamma_{h_0}$. To avoid choosing the number and position of knots in the spline, a relatively high number of knots (e.g., 15 to 20) are chosen and the corresponding B-spline regression coefficients $\gamma_{h_0}$ are penalized using a differences penalty \citep{eilers1996flexible}. 
+
+\subsection{Parameter Estimation}
+We estimate parameters of the joint model using Markov chain Monte Carlo (MCMC) methods under the Bayesian framework. Let $\bmath{\theta}$ denote the vector of the parameters of the joint model. The joint model postulates that given the random effects, time to graft failure and longitudinal responses taken over time are all mutually independent. Under this assumption the posterior distribution of the parameters is given by:
+\begin{align*}
+p(\bmath{\theta}, \bmath{b} \mid \mathcal{D}_n) & \propto \prod_{i=1}^n p(T_i, \delta_i, \bmath{y}_{i1},\bmath{y}_{i2} \mid \bmath{b}_{i}, \bmath{\theta}) p(\bmath{b}_{i} \mid \bmath{\theta}) p(\bmath{\theta})\\
+& \propto \prod_{i=1}^n p(T_i, \delta_i \mid \bmath{b}_i, \bmath{\theta}) p(\bmath{y}_{i1} \mid \bmath{b}_{i1}, \bmath{\theta}) p(\bmath{y}_{i2} \mid \bmath{b}_{i2}, \bmath{\theta}) p(\bmath{b}_i \mid \bmath{\theta}) p(\bmath{\theta}),\\
+p(\bmath{b}_i \mid \bmath{\theta}) &= \frac{1}{\sqrt{(2 \pi)^q \text{det}(\bmath{D})}} \exp(\bmath{b}_i^T \bmath{D}^{-1} \bmath{b}_i),
+\end{align*}
+where the likelihood contribution of PCR conditional on random effects is (contribution of SCr can be derived similarly):
+\begin{align*}
+p(\bmath{y}_{i1} \mid \bmath{b}_{i1}, \bmath{\theta}) &= \frac{1}{\big(\sqrt{2 \pi \sigma^2}\big)^{n_i}} \exp\bigg(-\frac{{\lVert{\bmath{y}_{i1} - \bmath{X}_{i1}\bmath{\beta}_1 - \bmath{Z}_{i1}\bmath{b}_{i1}}\rVert}^2}{\sigma_1^2}\bigg),\\
+\bmath{X}_{i1} &= \{\bmath{x}_{i1}(t_{i11})^T, \ldots, \bmath{x}_{i1}(t_{i1n_i})^T\}^T,\\
+\bmath{Z}_{i1} &= \{\bmath{z}_{i1}(t_{i11})^T, \ldots, \bmath{z}_{i1}(t_{i1n_i})^T\}^T.
+\end{align*}
+
+The likelihood contribution of the time to graft failure outcome is given by:
+\begin{equation}
+\label{web_eq : likelihood_contribution_survival}
+p(T_i, \delta_i \mid \bmath{b}_i,\bmath{\theta}) = h_i(T_i \mid \mathcal{M}_{i1}(s), \mathcal{M}_{i2}(s), \bmath{w}_i)^{\delta_i} \exp\Big\{-\int_0^{T_i} h_i(s \mid \mathcal{M}_{i1}(s), \mathcal{M}_{i2}(s), \bmath{w}_i)\rmn{d}{s}\Big\}.
+\end{equation}
+The integral in (\ref{web_eq : likelihood_contribution_survival}) does not have a closed-form solution, and therefore we use a 15-point Gauss-Kronrod quadrature rule to approximate it.
+
+We use independent normal priors with zero mean and variance 100 for the fixed effects $\bmath{\beta}_1, \bmath{\beta}_2$, and inverse Gamma prior with shape and rate both equal to 0.01 for the parameters $\sigma_1^2, \sigma_2^2$. For the variance-covariance matrix $\bmath{D}$ of the random effects we take inverse Wishart prior with an identity scale matrix and degrees of freedom equal to $q$ (number of random effects). For the relative risk model's parameters $\bmath{\gamma}$ and the association parameters $\bmath{\alpha}$, we use a global-local ridge-type shrinkage prior. For example, for the $s$-{th} element of $\bmath{\alpha}$ we assume (similarly for $\bmath{\gamma}$):
+\begin{equation*} 
+\alpha_s \sim \mathcal{N}(0, \tau\psi_s), \quad \tau^{-1} \sim \mbox{Gamma}(0.1, 0.1),  \quad \psi_s^{-1} \sim \mbox{Gamma}(1, 0.01).
+\end{equation*} 
+The global smoothing parameter $\tau$ has sufficiently mass near zero to ensure shrinkage, while the local smoothing parameter $\psi_s$ allows individual coefficients to attain large values. For the penalized version of the B-spline approximation to the baseline hazard, we use the following prior for parameters $\gamma_{h_0}$ \citep{lang2004bayesian}:
+\begin{equation*}
+p(\gamma_{h_0} \mid \tau_h) \propto \tau_h^{\rho(\bmath{K})/2} \exp\bigg(-\frac{\tau_h}{2}\gamma_{h_0}^T \bmath{K} \gamma_{h_0}\bigg),
+\end{equation*}
+where $\tau_h$ is the smoothing parameter that takes a Gamma(1, 0.005) hyper-prior in order to ensure a proper posterior for $\gamma_{h_0}$, $\bmath{K} = \Delta_r^T \Delta_r + 10^{-6} \bmath{I}$, where $\Delta_r$ denotes the $r$-th difference penalty matrix, and $\rho(\bmath{K})$ denotes the rank of $\bmath{K}$.

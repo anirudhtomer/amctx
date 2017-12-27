@@ -110,11 +110,12 @@ aucdf = data.frame(time=rep(TstartTimes, 3),
                     auc=c(pcrCreatinineBothAUC, creatinineOnlyAUC, pcrOnlyAUC),
                     Biomarker=rep(c("Both", "Only Creatinine", "Only PCR"), each=length(TstartTimes)))
 
-ggplot(data=aucdf) + geom_line(aes(x=time, y=auc, color=Biomarker)) +
-  geom_point(aes(x=time, y=auc, color=Biomarker)) +
+ggplot(data=aucdf) + geom_line(aes(x=time, y=auc, linetype=Biomarker)) +
+  geom_point(aes(x=time, y=auc)) +
   xlab("Time (years)") + ylab("AUC (6 months)") + ylim(0,1) + 
   theme(text = element_text(size=13), axis.text.x = element_text(size=13)) +
-  scale_x_continuous(breaks = TstartTimes) +
+  scale_x_continuous(breaks = TstartTimes) + 
+  scale_linetype_manual(values=c("solid", "dotted", "twodash")) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 ggsave(filename = "report/hessel/images/auc.eps", width=8.27, height=9.69/2, device=cairo_ps)
