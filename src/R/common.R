@@ -43,6 +43,13 @@ plotRandomProfile = function(count=1, fitted=F, creatinine=T){
   print(plot)
 }
 
+getFittedSlopes = function(object){
+  postRandEff = object$statistics$postMeans$b[, 6:10]
+  Zmatrix = object$model_info$mvglmer_components$Z2
+  Ids = mvJoint_pcr_creatinine_tdboth_complex$model_info$mvglmer_components$id2
+  rowSums(Zmatrix * postRandEff[as.numeric(Ids),,drop=F])
+}
+
 #######################################################################
 # the following function creates the predicted values
 # and the 95% CIs
