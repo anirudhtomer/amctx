@@ -1,8 +1,8 @@
-% !TEX root =  ../ms.tex
+% !TEX root =  ../appendix.tex
 
-\section{Supplementary}
-\label{suppl : jm_framework}
-We start with the definition of the joint modeling framework that will be used to fit a model to the available dataset, and then to plan biomarker measurements for future patients. Let $T_i^*$ denote the true graft failure time, and $C_i$ denote the censoring time for the $i$-th patient enrolled in the kidney transplant aftercare. Let $T_i = \min(T^*_i, C_i)$ denote the observed graft failure time and $\delta_i = I(T^*_i < C_i)$ the event indicator for the $i$-th patient. $I(\cdot)$ is an indicator function that takes the value 1 when $T^*_i < C_i$ and 0 otherwise. Let $\bmath{y}_{i1}$ and $\bmath{y}_{i2}$ denote the log transformed $n_{i1} \times 1$ and $n_{i2} \times 1$ vectors of protein creatinine ratio (PCR) and serum creatinine (SCr) levels, respectively, for the $i$-th patient. For a sample of $n$ patients the observed data is denoted by $\mathcal{D}_n = \{T_i, \delta_i, \bmath{y}_{i1}, \bmath{y}_{i2}; i = 1, \ldots, n\}$.
+\section{Joint Modeling Framework}
+\label{sec : jm_framework}
+We start with the definition of the joint modeling framework that will be used to fit a model to the kidney transplant dataset, and then to plan biomarker measurements for future patients. Let $T_i^*$ denote the true graft failure time, and $C_i$ denote the censoring time for the $i$-th patient. Let $T_i = \min(T^*_i, C_i)$ denote the observed graft failure time and $\delta_i = I(T^*_i < C_i)$ the event indicator for the $i$-th patient. The indicator function $I(\cdot)$ takes the value 1 when $T^*_i < C_i$ and 0 otherwise. Let $\bmath{y}_{i1}$ and $\bmath{y}_{i2}$ denote the log transformed $n_{i1} \times 1$ and $n_{i2} \times 1$ vectors of protein creatinine ratio (PCR) and serum creatinine (SCr) levels, respectively, for the $i$-th patient. For a sample of $n$ patients the observed data is denoted by $\mathcal{D}_n = \{T_i, \delta_i, \bmath{y}_{i1}, \bmath{y}_{i2}; i = 1, \ldots, n\}$.
 
 The two outcomes, PCR and SCr are continuous in nature and thus to model them the joint model utilizes a multivariate linear mixed effects model (LMM). The PCR outcome is modeled as (model for SCr is same):
 \begin{equation*}
@@ -11,7 +11,6 @@ y_{i1}(t) &= m_{i1}(t) + \varepsilon_{i1}(t)\\
 &=\bmath{x}_{i}^T(t) \bmath{\beta}_1 + \bmath{z}_{i}^T(t) \bmath{b}_{i1} + \varepsilon_{i1}(t),
 \end{split}
 \end{equation*}
-
 where $\bmath{x}_{i}(t)$ denotes the row vector of the common design matrix for fixed effects of both PCR and SCr, respectively, and $\bmath{z}_{i}(t)$ denotes the same for random effects. The corresponding fixed effects are denoted by $\bmath{\beta}_1$, $\bmath{\beta}_2$ and the complete vector of random effects by $\bmath{b}_i = (\bmath{b}_{i1}, \bmath{b}_{i2})^T$. The complete vector of random effects are assumed to be normally distributed with mean zero and variance-covariance matrix $\bmath{D}$. The true and unobserved PCR and SCr levels at time $t$ are denoted by $m_{i1}(t)$ and $m_{i2}(t)$, respectively. Unlike $y_{i1}(t), y_{i2}(t)$, the former are not contaminated with the measurement errors $\varepsilon_{i1}(t)$ and $\varepsilon_{i2}(t)$, respectively. The errors are assumed to be normally distributed with mean zero and variance $\sigma_1^2$ and $\sigma_2^2$, respectively, and are independent of the random effects $\bmath{b}_{i1}, \bmath{b}_{i2}$.
 
 To model the effect of the two longitudinal outcomes on hazard of graft failure, joint models utilize a relative risk sub-model. The hazard of graft failure for patient $i$ at any time point $t$, denoted by $h_i(t)$, depends on a function of subject specific linear predictors $m_{i1}(t)$, $m_{i2}$ and/or the random effects:
@@ -47,7 +46,6 @@ p(\bmath{y}_{i1} \mid \bmath{b}_{i1}, \bmath{\theta}) &= \frac{1}{\big(\sqrt{2 \
 \bmath{X}_{i1} &= \{\bmath{x}_{i1}(t_{i11})^T, \ldots, \bmath{x}_{i1}(t_{i1n_i})^T\}^T,\\
 \bmath{Z}_{i1} &= \{\bmath{z}_{i1}(t_{i11})^T, \ldots, \bmath{z}_{i1}(t_{i1n_i})^T\}^T.
 \end{align*}
-
 The likelihood contribution of the time to graft failure outcome is given by:
 \begin{equation}
 \label{web_eq : likelihood_contribution_survival}
@@ -64,29 +62,3 @@ The global smoothing parameter $\tau$ has sufficiently mass near zero to ensure 
 p(\gamma_{h_0} \mid \tau_h) \propto \tau_h^{\rho(\bmath{K})/2} \exp\bigg(-\frac{\tau_h}{2}\gamma_{h_0}^T \bmath{K} \gamma_{h_0}\bigg),
 \end{equation*}
 where $\tau_h$ is the smoothing parameter that takes a Gamma(1, 0.005) hyper-prior in order to ensure a proper posterior for $\gamma_{h_0}$, $\bmath{K} = \Delta_r^T \Delta_r + 10^{-6} \bmath{I}$, where $\Delta_r$ denotes the $r$-th difference penalty matrix, and $\rho(\bmath{K})$ denotes the rank of $\bmath{K}$.
-
-\clearpage
-\subsection{Estimated Covariance Matrix of Random Effects}
-\label{suppl : estimated_cov}
-
-The estimated covariance matrix of random effects $D$ is presented below. Covariance parameters corresponding to random effects of PCR outcome are denoted by $b_{1k}, k=\{0, \ldots 4\}$, whereas $b_{2k}, k=\{0, \ldots 4\}$ denote the random effects for SCr outcome.
- \begin{equation*}
-  \mathbf{D}=
-  \begin{blockarray}{*{10}{r} l}
-    \begin{block}{*{10}{>{$\footnotesize}c<{$}} l}
-      $b_{10}$ & $b_{11}$ & $b_{12}$ & $b_{13}$ & $b_{14}$ & $b_{20}$ & $b_{21}$ & $b_{22}$ & $b_{23}$ & $b_{24}$ & \\
-    \end{block}
-    \begin{block}{[*{10}{r}]>{$\footnotesize}l<{$}}
-      1.050 &  &  &   &  &   &  &  &  &  \bigstrut[t]& $b_{10}$ \\
-      -0.833 &  1.651 &   &   &   &  &   &   &   &   & $b_{11}$ \\
-      -0.483 &  0.137 &  3.158 &    &  &  &   &  &   &  & $b_{12}$ \\
-      -1.114 &  1.284 &  1.264 &  3.749  &   & &   &   &   &  & $b_{13}$ \\
-      -0.407 &  0.844 & -0.609 &  2.930  &  5.609 &  &   &  &  &  & $b_{14}$ \\
-      0.251 & -0.221 & -0.110 & -0.289  & -0.085 &  0.328 &  & & & & $b_{20}$\\
-      -0.228 &  0.258 &  0.042 &  0.253  &  0.093 & -0.277 &  0.361 & & & & $b_{21}$\\
-      -0.089 &  0.087 &  0.567 &  0.447  & -0.016 & -0.185 &  0.137 &  0.592 & & & $b_{22}$\\
-      -0.322 &  0.347 &  0.468 &  0.936  &  0.575 & -0.504 &  0.494 &  0.531 &  1.229 & & $b_{23}$\\
-      -0.060 &  0.178 &  0.064 &  0.774  &  1.357 & -0.162 &  0.165 &  0.069 &  0.537 &  0.837 & $b_{24}$\\
-    \end{block}
-  \end{blockarray}
-\end{equation*}

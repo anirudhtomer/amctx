@@ -11,14 +11,7 @@ trainingSize = nrow(trainingDs.id)
 #multiplot(plotlist = lapply(simTestDs.id$amctx, plotTrueLongitudinal), cols = 3)
 #multiplot(plotlist = lapply(simTestDs.id$amctx, plotTrueSurvival), cols = 3)
 
-#The maximum risk for now is 10%. i.e. we want survival prob as 90% at 12 months
-#maxRisk = 0.1
-maxRisk = 0.025
-minSurv = 1-maxRisk
-#maxRiskDt = 1
-maxRiskDt = 0.5
-
-testTimes = seq(0, 20, 0.01)
+testTimes = seq(0, 3.5, 0.01)
 
 #First method to get dynamic max risk time
 cl = makeCluster(detectCores())

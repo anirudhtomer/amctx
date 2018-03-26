@@ -57,8 +57,17 @@ mvJoint_creatinine_tdboth_complex <- mvJointModelBayes(mvglmer_creatinine_comple
                                                 timeVar = "tx_s_years", Formulas = forms_creatinine_complex,
                                                 priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
 
-save(mvJoint_creatinine_tdboth_complex, file="Rdata/joint models/mvJoint_creatinine_tdboth_complex.Rdata")
+jmfit_creatinine_tdboth_complex = jointModelBayes(lme_creatinine, coxModel_clinical,
+                                                  timeVar = "tx_s_years", param="td-both", 
+                                                  extraForm = list(fixed = ~ 0 + dns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6)),
+                                                                random = ~ 0 + dns(tx_s_years,knots=c(30, 80, 365)/365, Boundary.knots = c(0.03917808, 6)),
+                                                                indFixed = c(18:21), indRandom = 2:5),
+                                                  n.iter = 1000)
 
+joint_creatinine_tdboth_complex_replaced = replaceMCMCContents(mvJoint_creatinine_tdboth_complex, jmfit_creatinine_tdboth_complex)
+
+save(mvJoint_creatinine_tdboth_complex, file="Rdata/joint models/mvJoint_creatinine_tdboth_complex.Rdata")
+save(joint_creatinine_tdboth_complex_replaced, file="Rdata/joint models/joint_creatinine_tdboth_complex_replaced.Rdata")
 
 # Both PCR and creatinine together
 mvglmer_pcr_creatinine=mvglmer(list(log(pcr) ~ 

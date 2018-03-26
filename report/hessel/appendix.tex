@@ -44,7 +44,6 @@
 \tikzstyle{decision} = [diamond, minimum width=1cm, minimum height=1cm,text centered,text width = 2.25cm, draw=black, fill=green!30]
 \tikzstyle{arrow} = [thick,->,>=stealth]
 
-
 \definecolor{ErasmusBlue}{RGB}{12, 32, 116}
 
 %Use 4 levels of sections using package titlesec
@@ -64,26 +63,44 @@
 \hline
 }
 
+\renewcommand{\thesection}{Appendix \Alph{section}}
 
 \begin{document}
-\title{\textbf{Personalized Schedules for Kidney Transplant Patients}}
+\title{\LARGE \textbf{Supplementary Material for ``A Personalized Screening Strategy to Monitor the Development of Chronic Allograft Failure in Renal Rransplant Recipients''}}
 
-\author[1,*]{Firstname Lastname}
-\affil[1]{Department of Biostatistics, Erasmus University Medical Center, the Netherlands}
-\affil[ ]{*\textit {email}: a.tomer@erasmusmc.nl}
+\author[1,2,*]{\large Hessel Peters-Sengers}
+\author[3,*]{Anirudh Tomer}
+\author[4]{Sandrine Florquin}
+\author[5,6]{Ewout W. Steyerberg}
+\author[1]{Frederike J. Bemelman}
+\author[3,\$]{Dimitris Rizopoulos}
+\author[4,7,\$]{Jesper Kers}
+\affil[1]{\footnotesize Division of Internal Medicine, Renal Transplant Unit, Academic Medical Center, Amsterdam, The Netherlands}
+\affil[2]{Center for Experimental and Molecular Medicine (CEMM), Academic Medical Center, Amsterdam, The Netherlands}
+\affil[3]{Department of Biostatistics, Erasmus University Medical Center, Rotterdam, The Netherlands}
+\affil[4]{Department of Pathology, Academic Medical Center, Amsterdam, The Netherlands}
+\affil[5]{Department of Public Health, Erasmus University Medical Center, Rotterdam, The Netherlands}
+\affil[6]{Department of Medical Statistics and Bioinformatics, Leiden University Medical Center, Leiden, The Netherlands}
+\affil[7]{Van 't Hoff Institute for Molecular Sciences (HIMS), University of Amsterdam, Amsterdam, The Netherlands}
+\affil[*,\$]{Authors contributed equally to the study}
 
 \date{}
 
 \maketitle
 
-%\doublespacing
-\input{mainmatter/summaryDs}
-\input{mainmatter/jm}
+\input{mainmatter/jm_framework}
+\clearpage
+\input{mainmatter/jm_amctx}
+\clearpage
 \input{mainmatter/sim_study}
 \clearpage
-\input{mainmatter/supplementary}
-
-\textbf{}
+\section{Source Code}
+The source code for the joint model fitted to the kidney transplant data set can be found at:\\
+\url{https://goo.gl/phQkxG}\\
+The source code for the simulation study can be found at:\\
+\url{https://goo.gl/TpLTM8}\\
+A README file explaining the usage of the code can be found at:\\
+\url{https://goo.gl/skFHNV}.\\
 
 \clearpage
 \printbibliography

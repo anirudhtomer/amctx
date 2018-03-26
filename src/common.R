@@ -254,57 +254,59 @@ plotAUCOverTime = function(auc_roc_list){
   return(plotData)
 }
 
-# 
-# idList = droplevels(unique(amctx.id[amctx.id$gl_failure==0,]$amctx))
-# 
-# idList = c(73, 94, 195, 209)
-# for(id in idList){
-#   ND = amctx_creatinine[amctx_creatinine$amctx %in% id,]
-#   futureTimes = seq(max(ND$tx_s_years), (max(ND$tx_s_years) + 3), 0.1)
-#   
-#   ####################
-#   longprof = predict(jmbayes_creatinine_orig, ND, type = "Subject",
-#           interval = "confidence", return = TRUE, idVar="amctx", FtTimes = futureTimes)
-#   last.time <- with(longprof, tx_s_years[!is.na(low)][1])
-#   longprof[longprof$tx_s_years>last.time,]$value=NA
-#   ggplot(data = longprof, aes(x = tx_s_years, y=pred)) + geom_line() + 
-#     geom_ribbon(aes(ymin=low, ymax=upp), fill="grey", alpha=0.5) + 
-#     geom_point(aes(y=log(value)), colour="red", alpha=0.4) + 
-#     geom_vline(xintercept = last.time, linetype="dotted") + 
-#     xlab("Time (years)") + ylab("Predicted log(serum creatinine)") + 
-#     ggtitle(paste("amctx =",id))
-#   
-#   #####################
-#   sfit.patient2 = survfitJM(jmbayes_creatinine_orig, ND, idVar="amctx", survTimes = futureTimes)
-#   plot(sfit.patient2, estimator="mean", include.y=T, conf.int=T, fill.area=T, col.area="lightgrey", main=paste("amctx =",id))
-#   
-#   longprof$survMean = rep(NA, nrow(longprof))
-#   longprof$survLow = rep(NA, nrow(longprof))
-#   longprof$survUp = rep(NA, nrow(longprof))
-#   
-#   ymin = min(c(longprof[longprof$tx_s_years<=last.time,]$pred, log(longprof[longprof$tx_s_years<=last.time,]$value)))
-#   ymax = max(c(longprof[longprof$tx_s_years<=last.time,]$pred, log(longprof[longprof$tx_s_years<=last.time,]$value)))
-#   
-#   longprof[longprof$tx_s_years>last.time, c("survMean", "survLow", "survUp")] = 
-#     (sfit.patient2$summaries[[1]][, c("Mean", "Lower", "Upper")] * (ymax-ymin) + ymin)
-#   
-#   ggplot() + 
-#     geom_line(data = longprof[longprof$tx_s_years<=last.time,], aes(x = tx_s_years, y=pred)) + 
-#     geom_point(data = longprof, aes(y=log(value), x=tx_s_years), colour="red", alpha=0.4) + 
-#     geom_vline(xintercept = last.time, linetype="dotted") + 
-#     geom_line(data = longprof, aes(x=tx_s_years, y=survMean)) + 
-#     geom_ribbon(data = longprof, aes(ymin=survLow, ymax=survUp, x= tx_s_years), fill="grey", alpha=0.5) + 
-#     xlab("Time (years)") + ylab("log(serum creatinine)") + 
-#     scale_y_continuous(limits = c(ymin, ymax), sec.axis = sec_axis(~(.-ymin)/(ymax-ymin)))
-#   
-#   plotSurv = ggplot(data=data.frame(sfit.patient2$summaries[[1]])) + 
-#     geom_line(aes(x=times, y=Mean)) + 
-#     geom_ribbon(aes(ymin=Lower, ymax=Upper, x= times),  fill="grey", alpha=0.5) + 
-#     scale_y_continuous(position = "right")
-#   
-#   multiplot(plotLong, plotSurv, cols = 2)
-#   multiplot(templot, plotSurv, cols = 2)
-# }
-# 
-# rocJM(jmbayes_creatinine_orig, dt = c(1, 2, 4), data = ND,
-#       M = 1000, burn.in = 500)
+
+plotDynamicSurvProb = function(pid, fittedJointModel, maxLongTimeHorizon=Inf, maxFutureTime=NA, futureTimeDt = NA){
+  
+  if(is.na(futureTimeDt) & is.na(maxFutureTime)){
+    stop("No future max time or time window supplied")
+  }
+  
+  patientDs = amctx_merged_scaled[amctx_merged_scaled$amctx %in% pid & amctx_merged_scaled$tx_s_years<=maxLongTimeHorizon &
+                                    !is.na(amctx_merged_scaled$creatinine),]
+  lastCreatinineTime = max(patientDs$tx_s_years)
+  
+  if(is.na(maxFutureTime) & !is.na(futureTimeDt)){
+    maxFutureTime = lastCreatinineTime + futureTimeDt
+  }
+  
+  futureTimes = seq(lastCreatinineTime, maxFutureTime, 0.1)
+  
+  sfit = survfitJM(fittedJointModel, patientDs, idVar="amctx", survTimes = futureTimes)
+  
+  longprof = predict(fittedJointModel, patientDs, type = "Subject",
+                     interval = "confidence", return = TRUE, idVar="amctx", FtTimes = futureTimes)
+  
+  longprof[longprof$tx_s_years>lastCreatinineTime,]$creatinine=NA
+  longprof$survMean = rep(NA, nrow(longprof))
+  longprof$survLow = rep(NA, nrow(longprof))
+  longprof$survUp = rep(NA, nrow(longprof))
+  
+  ymin = min(c(longprof[longprof$tx_s_years<=lastCreatinineTime,]$pred, log(longprof[longprof$tx_s_years<=lastCreatinineTime,]$creatinine)))
+  ymax = max(c(longprof[longprof$tx_s_years<=lastCreatinineTime,]$pred, log(longprof[longprof$tx_s_years<=lastCreatinineTime,]$creatinine)))
+  
+  survProbRes = rbind(c(1,1,1), sfit$summaries[[1]][, c("Mean", "Lower", "Upper")])
+  
+  #subsetting twice because there are two rows for the last time, and -1 to remove one of those two rows
+  longprof[longprof$tx_s_years>=lastCreatinineTime, c("survMean", "survLow", "survUp")][-1,] =
+    (survProbRes * (ymax-ymin) + ymin)
+  
+  p=ggplot() +
+    geom_line(data = longprof[longprof$tx_s_years<=lastCreatinineTime,], aes(x = tx_s_years, y=pred)) +
+    geom_point(data = longprof[longprof$tx_s_years<=lastCreatinineTime,], aes(y=log(creatinine), x=tx_s_years)) +
+    geom_vline(xintercept = lastCreatinineTime, linetype="dotted") +
+    geom_line(data = longprof, aes(x=tx_s_years, y=survMean)) +
+    geom_ribbon(data = longprof, aes(ymin=survLow, ymax=survUp, x= tx_s_years), fill="grey", alpha=0.5) +
+    xlab("Time (years)") + ylab(expression('log(creatinine)')) +
+    theme(text = element_text(size=13), axis.text=element_text(size=13),
+          plot.title = element_text(hjust = 0.5, size=13)) +
+    scale_x_continuous(breaks = seq(0, maxFutureTime, 1)) + 
+    scale_y_continuous(limits = c(ymin, ymax),breaks = round(seq(ymin, ymax, length.out = 5),2), 
+                       sec.axis = sec_axis(~(.-ymin)/(ymax-ymin), name = "Dynamic survival probability"))
+  
+  print(p)
+  return(p)
+}
+
+#p1 = plotDynamicSurvProb(195, joint_creatinine_tdboth_complex_replaced, maxFutureTime = 9, maxLongTimeHorizon = 5) + ggtitle("Using creatinine measurements up to year five")
+#p2 = plotDynamicSurvProb(195, joint_creatinine_tdboth_complex_replaced, maxFutureTime = 9, maxLongTimeHorizon = Inf) + ggtitle("Using all creatinine measurements")
+ggsave(multiplot(p1, p2, cols = 1), filename = "report/hessel/images/dynSurvProb.eps", width=8.27, height=8.27, device=cairo_ps, dpi=500)

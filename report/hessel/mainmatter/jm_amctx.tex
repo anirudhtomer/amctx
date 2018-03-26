@@ -1,9 +1,8 @@
-% !TEX root =  ../ms.tex
+% !TEX root =  ../appendix.tex
 
-\section{Joint Model}
-\label{sec : joint_model}
-Our goal is to check if SCr and PCR both, are useful to predict graft failure. To this end, we model the two longitudinal outcomes and graft failure together using joint models (JMs) for time to event and longitudinal data \citep{tsiatis2004joint,rizopoulos2012joint}. In this model we use log transformed values of both SCr and PCR \citep{fournier2016joint}. More specifically, we model the impact of log(SCr) value and log(SCr) velocity, log(PCR) value and log(PCR) velocity, and transplantation characteristics on the hazard of graft failure. In this regard, the JM consists of a multivariate longitudinal sub-model to model the evolution of SCr and PCR and a relative risk sub-model to model the impact of transplantation characteristics and biomarkers on the hazard of graft failure. The longitudinal evolution of the two outcomes over time is modeled flexibly using B-splines. The model formulation for PCR outcome is as follows (for SCr outcome it is same):
-
+\section{Joint Model for the Kidney Transplant Dataset}
+\label{sec : jm_amctx}
+A total of 239 kidney transplant patients were included in the data set. The transplantation characteristics of these patients is presented in Table \ref{tab : baseline_characteristics}. The data set also includes periodical measurements of SCr and PCR. Our goal is to check if SCr and PCR both, are useful to predict graft failure. To this end, we model the two longitudinal outcomes and graft failure together using the joint modeling framework described in \ref{sec : jm_amctx}. In this model we use log transformed values of both SCr and PCR \citep{fournier2016joint}. More specifically, we model the impact of log(SCr) value and log(SCr) velocity, log(PCR) value and log(PCR) velocity, and transplantation characteristics on the hazard of graft failure. In this regard, the JM consists of a multivariate longitudinal sub-model to model the evolution of SCr and PCR and a relative risk sub-model to model the impact of transplantation characteristics and biomarkers on the hazard of graft failure. The longitudinal evolution of the two outcomes over time is modeled flexibly using B-splines. The model formulation for PCR outcome is as follows (for SCr outcome it is same):
 \begin{equation}
 \label{eq : long_model_prias}
 \begin{aligned}
@@ -17,16 +16,76 @@ Our goal is to check if SCr and PCR both, are useful to predict graft failure. T
 where $B_k(t, \mathcal{K})$ denotes the $k$-th basis function of a B-spline with three internal knots at $\mathcal{K} =\{0.082, 0.219, 1\}$ (30 and 80 days recommended by the clinicians) years, and boundary knots at 0.039 and 6 years (minimum and 0.95 quantile of the time of measurements two outcomes). The quantitative transplantation characteristics are standardized to avoid convergence issues in parameter estimation. For the relative risk sub-model the hazard function we fit is given by:
 \begin{equation}
 \label{eq : hazard_prias}
-h_i(t) = h_0(t) \exp\big\{\gamma_1 \mbox{prev\_tp} + \gamma_2 \mbox{hla}  + \gamma_3 \mbox{cit} + \gamma_4 \mbox{dial\_days} + \alpha_1 m_{i1}(t) + \alpha_2 m'_{i1}(t)\big\}.
+\begin{aligned}
+h_i(t) &= h_0(t) \exp\big\{\gamma_1 \mbox{prev\_tp} + \gamma_2 \mbox{hla}  + \gamma_3 \mbox{cit} + \gamma_4 \mbox{dial\_days} \\
+& + \alpha_{11} m_{i1}(t) + \alpha_{12} m'_{i1}(t) + \alpha_{21} m_{i2}(t) + \alpha_{22} m'_{i2}(t)\big\},
+\end{aligned}
 \end{equation}
-where $\alpha_1$ and $\alpha_2$ are measures of strength of the association between hazard of graft failure and $\log \mbox{PCR}$ value $m_{i1}(t)$ and $\log \mbox{PCR}$ velocity $m'_{i1}(t)$, respectively.
+where $\alpha_{11}, \alpha_{12}, \alpha_{21}$ and $\alpha_{22}$ are measures of strength of the association between hazard of graft failure and $\log \mbox{PCR}$ value $m_{i1}(t)$, $\log \mbox{PCR}$ velocity $m'_{i1}(t)$, $\log \mbox{SCr}$ value $m_{i1}(t)$ and $\log \mbox{SCr}$ velocity $m'_{i2}(t)$ respectively.
 
-The parameters of the JM are estimated using the R package \textbf{JMbayes} \citep{rizopoulosJMbayes}, which uses the Bayesian methodology to estimate the model parameters (section B, supplementary material). Out of 239 patients, we use the data of only those 238 patients for whom both PCR and SCr data is available. The parameter estimates for the longitudinal sub-model for SCr and PCR are provided in Table \ref{tab : creatinine_long} and Table \ref{tab : pcr_long}, respectively. The effect of transplantation characteristics on both outcomes is small and ignorable, and hence not discussed in detail. Since the quantitative variables are standardized, the effect sizes correspond to one standard deviation increase in the corresponding variable. To avoid the tricky interpretation of variables corresponding to evolution over time, instead the evolution of SCr and PCR over time is depicted in Figure \ref{fig : creatinine_evolution}, and Figure \ref{fig : pcr_evolution}, respectively.
-@Hessel: We have to explain why the creatinine levels dip. 
+The parameters of the JM are estimated using the R package \textbf{JMbayes} \citep{rizopoulosJMbayes}, which uses the Bayesian methodology to estimate the model parameters. The parameter estimates for the relative risk sub-model are provided in Table \ref{tab : relative_risk}. Since the quantitative variables are standardized, the effect sizes correspond to one standard deviation increase in the corresponding variable.  The parameter estimates for the longitudinal sub-model for SCr and PCR are provided in Table \ref{tab : creatinine_long} and Table \ref{tab : pcr_long}, respectively. To avoid the tricky interpretation of variables corresponding to evolution over time, instead the evolution of SCr and PCR over time is depicted in Figure \ref{fig : creatinine_evolution}, and Figure \ref{fig : pcr_evolution}, respectively.
 
 \begin{table}[!htb]
 \begin{center}
-\caption{Parameter estimates for the longitudinal model for SCr.}
+\caption{Observed transplantation characteristics of the studied population (n = 239).}
+\label{tab : baseline_characteristics}
+\begin{tabular}{llr}
+\Hline
+\multicolumn{3}{c}{Quantitative characteristics} \\
+\hline
+Name & Abbreviation & Mean (SD) \\ 
+\hline
+Receiver age (at baseline) & rec\_age & 50.70 (13.09) \\
+Donor age & d\_age & 49.73 (12.66) \\
+Donor BMI & d\_bmi & 25.10 (4.43) \\
+Receiver BMI & rec\_bmi & 25.43 (4.31) \\
+Cold ischemia time (minutes) & cit & 887.25 (522.95)\\
+\#HLA A, B and DR mismatches & hla & 2.81 (1.57)\\
+Panel reactive antibody (\%) & pra & 4.81 (14.20) \\
+\#Days on dialysis before transplant & dial\_days & 1334.91 (1283.93)\\
+\#Anti-hypertensive medicaments & ah\_nr & 1.58 (0.96)\\
+\hline
+\\
+\multicolumn{3}{c}{Categorical characteristics}\\
+\hline
+Name & Abbreviation & Category (\%) \\
+\hline
+Receiver gender & rec\_gender & Female (42.68 \%)\\
+Donor gender & d\_gender & Female (56.49 \%)\\
+Delayed graft function after transplant & dgf & No (67.78 \%)\\
+Previous transplantation & prev\_tp & No (84.45 \%)\\
+Diabetes mellitus & dm & No (84.52 \%)\\
+Known cardiovascular events before transplant & hvdis & No (61.92 \%)\\
+Deceased donor & d\_cadaveric & No (25.94 \%)\\
+\hline     
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{table}[!htb]
+\begin{center}
+\caption{Relative risk sub-model estimates for mean and 95\% credible interval.}
+\label{tab : relative_risk}
+\begin{tabular}{lrrrrr}
+\Hline
+Variable               & Mean   & Std. Dev & 2.5\%  & 97.5\% & P              \\
+\hline
+Previous transplant: Yes      & 0.305  & 0.339    & -0.099 & 0.986  & 0.352          \\
+\#HLA mismatches between donor and recipient                & 0.048  & 0.093    & -0.114 & 0.269  & 0.620          \\
+Cold ischemia time                & -0.051 & 0.105    & -0.277 & 0.133  & 0.644          \\
+\#Days on dialysis before transplant         & -0.013 & 0.102    & -0.251 & 0.178  & 0.934          \\
+$\log \mbox{PCR}$        & 0.145  & 0.125    & -0.056 & 0.431  & 0.188          \\
+Slope($\log \mbox{PCR}$)        & 0.021  & 0.058    & -0.076 & 0.145  & 0.828          \\
+$\log \mbox{SCr}$ & 1.599  & 0.241    & 1.067  & 2.063  & \textless0.000 \\
+Slope($\log \mbox{SCr}$)  & 0.203  & 0.123    & -0.017 & 0.443  & 0.082  \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{table}[!htb]
+\begin{center}
+\caption{Parameter estimates for the longitudinal sub-model for SCr.}
 \label{tab : creatinine_long}
 \begin{tabular}{lrrrrr}
 \Hline
@@ -61,7 +120,7 @@ $\sigma$                                                                        
 
 \begin{table}[!htb]
 \begin{center}
-\caption{Parameter estimates for the longitudinal model for PCR.}
+\caption{Parameter estimates for the longitudinal sub-model for PCR.}
 \label{tab : pcr_long}
 \begin{tabular}{lrrrrr}
 \Hline
@@ -105,48 +164,3 @@ $\sigma$                                                                        
 \caption{Fitted longitudinal evolution of PCR and 95\% credible interval for a patient with the  transplantation characteristics described in Table \ref{tab : baseline_characteristics}.}
 \label{fig : pcr_evolution}
 \end{figure}
-
-The parameter estimates for the relative risk sub-model are provided in Table \ref{tab : relative_risk}. Since the quantitative variables are standardized, the effect sizes correspond to one standard deviation increase in the corresponding variable. We found that the $\log \mbox{SCr}$  levels are strongly associated with the hazard of GR. More specifically, for a given patient, if the SCr levels become twice and the remaining variables in the relative risk model remain the same, the hazard of graft failure increases three fold. $\log \mbox{PCR}$ levels and velocity are not strongly associated with hazard of GR. To further verify if they are required in the model in presence of both $\log \mbox{SCr}$ levels and velocity, we fitted two more JMs. In the first JM we modeled the association between $\log \mbox{SCr}$ levels and velocity and hazard of graft failure. In the second JM we modeled the association between $\log \mbox{PCR}$ levels and velocity and hazard of graft failure. We then calculated time dependent AUC, that is, area under the curve \citep{landmarking2017,rizopoulosJMbayes} values for all of the three JMs. The time dependent AUC were calculated periodically at an interval of 6 months. The first AUC was calculated at 6 months since transplantation and the last AUC was calculated at 3 years since transplantation. The resulting AUC values are plotted in Figure \ref{fig : auc_curve} and listed in Table \ref{tab : auc}. It can be seen that the model with both longitudinal outcomes performs the same as the model with only creatinine, to discriminate between patients who obtain graft failure versus others. Hence modeling PCR may not be necessary.
-
-\begin{table}[!htb]
-\begin{center}
-\caption{Relative risk sub-model estimates for mean and 95\% credible interval.}
-\label{tab : relative_risk}
-\begin{tabular}{lrrrrr}
-\Hline
-Variable               & Mean   & Std. Dev & 2.5\%  & 97.5\% & P              \\
-\hline
-Previous transplant: Yes      & 0.305  & 0.339    & -0.099 & 0.986  & 0.352          \\
-\#HLA mismatches between donor and recipient                & 0.048  & 0.093    & -0.114 & 0.269  & 0.620          \\
-Cold ischemia time                & -0.051 & 0.105    & -0.277 & 0.133  & 0.644          \\
-\#Days on dialysis before transplant         & -0.013 & 0.102    & -0.251 & 0.178  & 0.934          \\
-$\log \mbox{PCR}$        & 0.145  & 0.125    & -0.056 & 0.431  & 0.188          \\
-Slope($\log \mbox{PCR}$)        & 0.021  & 0.058    & -0.076 & 0.145  & 0.828          \\
-$\log \mbox{SCr}$ & 1.599  & 0.241    & 1.067  & 2.063  & \textless0.000 \\
-Slope($\log \mbox{SCr}$)  & 0.203  & 0.123    & -0.017 & 0.443  & 0.082  \\
-\hline
-\end{tabular}
-\end{center}
-\end{table}
-
-\begin{figure}[!htb]
-\centerline{\includegraphics[width=\columnwidth]{images/auc.eps}}
-\caption{Area under curve characteristics for the JMs fitted to the kidney transplant data set.}
-\label{fig : auc_curve}
-\end{figure}
-
-\begin{table}[!htb]
-\begin{center}
-\caption{Area under curve characteristics for the JMs fitted to the kidney transplant data set.}
-\label{tab : auc}
-\begin{tabular}{lrrrrrr}
-\Hline
-Biomarkers               & Year 0.5   & Year 1 & Year 1.5  & Year 2 & Year 2.5 & Year 3 \\
-\hline
-Both SCr and PCR & 0.845 & 0.927 & 0.915 & 0.828 & 0.953 & 0.686\\
-Only SCr & 0.801 & 0.901 & 0.918 & 0.866 & 0.957 & 0.692\\
-Only PCR & 0.844 & 0.858 & 0.755 & 0.640 & 0.825 & 0.473\\
-\hline
-\end{tabular}
-\end{center}
-\end{table}
