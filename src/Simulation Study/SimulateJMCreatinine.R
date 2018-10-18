@@ -1,37 +1,22 @@
-library(MASS)
+library(ggplot2)
+library(ggmcmc)
+library(coda)
+library(parallel)
+library(doParallel)
+library(survival)
 library(splines)
+library(nlme)
+library(JMbayes)
+library(MASS)
 
-source("src/R/common.R")
-source("src/R/Simulation Study/simCommon.R")
+load('Rdata/cleanData.RData')
+load("Rdata/joint models/mvJoint_creatinine_tdboth_complex.Rdata")
+source("src/Simulation Study/simCommon.R")
 
-set.seed(1202)
+set.seed(2018)
 nSub <- 1000
 
-# design matrix for the survival model
-
-#weibullShape = 1.70
-#weibullScale = 8000
-#6250
-
-# bsGammas = getBsGammas(fittedJointModel)
-# time = seq(1, 10, by=0.1)
-# baselineHazard_fitted = exp(splineDesign(fittedJointModel$control$knots, x = time) %*% bsGammas)
-# 
-# pdf_sim = dweibull(time, shape = weibullShape, scale = weibullScale)
-# survival_sim = (1-pweibull(q = time,shape= weibullShape, scale = weibullScale))
-# baselinehazard_sim = pdf_sim/survival_sim
-# 
-# p1 = qplot(y=c(baselinehazard_sim, baselineHazard_fitted), x = c(time,time), geom="line", 
-#            color=c(rep("sim", length(time)), rep("Fitted", length(time)))) + theme(legend.position="none")
-# p2 = qplot(x = rweibull(10000, shape = weibullShape, scale = weibullScale), geom="density")
-# multiplot(p1, p2, cols=2)
-
-weibullShapes = rep(1.35, nSub)
-weibullScales = rep(11000, nSub)
-
 simulatedDs = generateSimLongitudinalData(nSub)
-plotTrueSurvival(sample(1:10, size = 1))
-
 simulatedDs = generateSimJointData(nSub, simulatedDs$simDs, simulatedDs$simDs.id,
                                    simulatedDs$b, simulatedDs$wGamma)
 

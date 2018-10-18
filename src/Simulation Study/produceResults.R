@@ -3,8 +3,10 @@
 #############################################
 simTestDs.id$diff_fixed_new = simTestDs.id$stopTime_fixed_new - simTestDs.id$stoptime_True
 
-dir = "Rdata/new/pt025risk/"
+dir = "Rdata/new/pt05risk/"
 i = 1
+
+#Index is 1 for both 2.5% and 5% risk
 fileNames = list.files(path = dir)[1]
 for(rdataname in fileNames){
   load(paste(dir, rdataname, sep=""))

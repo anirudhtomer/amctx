@@ -296,17 +296,17 @@ plotDynamicSurvProb = function(pid, fittedJointModel, maxLongTimeHorizon=Inf, ma
     geom_vline(xintercept = lastCreatinineTime, linetype="dotted") +
     geom_line(data = longprof, aes(x=tx_s_years, y=survMean)) +
     geom_ribbon(data = longprof, aes(ymin=survLow, ymax=survUp, x= tx_s_years), fill="grey", alpha=0.5) +
-    xlab("Time (years)") + ylab(expression('log(creatinine)')) +
+    xlab("Time (years)") + ylab(expression('Serum creatinine (log umol/l)')) +
     theme(text = element_text(size=13), axis.text=element_text(size=13),
           plot.title = element_text(hjust = 0.5, size=13)) +
     scale_x_continuous(breaks = seq(0, maxFutureTime, 1)) + 
     scale_y_continuous(limits = c(ymin, ymax),breaks = round(seq(ymin, ymax, length.out = 5),2), 
-                       sec.axis = sec_axis(~(.-ymin)/(ymax-ymin), name = "Dynamic survival probability"))
+                       sec.axis = sec_axis(~(.-ymin)/(ymax-ymin), name = "Death-censored graft survival (probability)"))
   
   print(p)
   return(p)
 }
 
-#p1 = plotDynamicSurvProb(195, joint_creatinine_tdboth_complex_replaced, maxFutureTime = 9, maxLongTimeHorizon = 5) + ggtitle("Using creatinine measurements up to year five")
-#p2 = plotDynamicSurvProb(195, joint_creatinine_tdboth_complex_replaced, maxFutureTime = 9, maxLongTimeHorizon = Inf) + ggtitle("Using all creatinine measurements")
+p1 = plotDynamicSurvProb(190, joint_creatinine_tdboth_complex_replaced, maxLongTimeHorizon=3.5, maxFutureTime = 6) + ggtitle("Using creatinine measurements up to 3.5 years")
+p2 = plotDynamicSurvProb(190, joint_creatinine_tdboth_complex_replaced, maxLongTimeHorizon=4, maxFutureTime = 6) + ggtitle("Using creatinine measurements up to 4 years")
 ggsave(multiplot(p1, p2, cols = 1), filename = "report/hessel/images/dynSurvProb.eps", width=8.27, height=8.27, device=cairo_ps, dpi=500)

@@ -1,6 +1,9 @@
 plotTrueSurvival = function(patientId){
+  simDs.id = simulatedDs$simDs.id
+  b_creatinine = simulatedDs$b
+  wGamma = simulatedDs$wGamma
   
-  time = 1:15
+  time = seq(0.01, 10, 0.1)
   survProb = sapply(time, function(t){
     survivalFunc(t, patientId, simDs.id[patientId, ], 
                  wGamma[patientId], b_creatinine[patientId, ])
@@ -9,11 +12,12 @@ plotTrueSurvival = function(patientId){
   byYAxis = (max(survProb) - min(survProb))/10
   
   qplot(x=time, y = survProb, geom = "line", xlab = "Time (years)", ylab = "Probability") + 
-    ticksX(from=0, max = 15, by=1) + ticksY(min(survProb), max(survProb), by=byYAxis) + 
+    ylim(0,1)+
     ggtitle(patientId)
 }
 
 plotTrueLongitudinal = function(patientId){
+  simDs = simulatedDs$simDs
   ds = simDs[simDs$amctx == patientId, ]
   ds$logCreatinine = rLogCreatinine(patientId, ds$tx_s_years, T)
   ggplot(data=ds, aes(x=tx_s_years, y=logCreatinine)) + 
@@ -90,10 +94,8 @@ getBsGammas = function(jointModel, weightedOnes = T){
 }
 
 hazardFunc = function (s, patientId, simDs.id_i, wGamma_i, b_i) {
-  weibullShape_i = weibullShapes[patientId]
-  weibullScale_i = weibullScales[patientId]
-  
-  baselinehazard_s = (weibullShape_i/weibullScale_i)*(s/weibullScale_i)^(weibullShape_i-1)
+  baselinehazard_s = exp(splineDesign(fittedJointModel$control$knots, s, 
+                                    ord = fittedJointModel$control$ordSpline, outer.ok = T) %*% fittedJointModel$statistics$postMeans$Bs_gammas)
   
   df_s = data.frame(tx_s_years = s, simDs.id_i)
   
@@ -119,16 +121,17 @@ hazardFunc = function (s, patientId, simDs.id_i, wGamma_i, b_i) {
 
 
 survivalFunc <- function (t, i, simDs.id_i, wGamma_i, b_i) {
-  exp(-integrate(hazardFunc, lower = 0, upper = t, i, simDs.id_i, wGamma_i, b_i)$value)
+  exp(-integrate(hazardFunc, lower = 0.01, upper = t, i, simDs.id_i, wGamma_i, b_i)$value)
 }
 
 invSurvival <- function (t, u, i, simDs.id_i, wGamma_i, b_i) {
-  integrate(hazardFunc, lower = 0, upper = t, i, simDs.id_i, wGamma_i, b_i)$value + log(u)
+  integrate(hazardFunc, lower = 0.01, upper = t, i, simDs.id_i, wGamma_i, b_i)$value + log(u)
 }
 
 pSurvTime = function(survProb, patientId, simDs.id_i, wGamma_i, b_i){
   Low = 1e-05
-  Up <- 35
+  #Up <- 35
+  Up <- 10
   tries  = 0
   
   #uniroot(invSurvival, interval = c(Low, Up), 
@@ -139,11 +142,13 @@ pSurvTime = function(survProb, patientId, simDs.id_i, wGamma_i, b_i){
                         u = survProb, i = patientId, simDs.id_i, wGamma_i, b_i)$root, TRUE)
     
     if(inherits(Root, "try-error")){
-      if(tries >= 5){
-        return(NA)
-      }else{
-        Up = Up + 0.5    
-      }
+      # if(tries >= 5){
+      #   return(NA)
+      # }else{
+      #   Up = Up + 0.5    
+      # }
+      print(Root)
+      return(NA)
     }else{
       return(Root)
     }
@@ -204,6 +209,17 @@ generateSimLongitudinalData = function(nSub){
                         tx_dial_days, tx_previoustx, d_gender, rec_gender, 
                         d_cadaveric, tx_dgf, tx_dm, tx_pra, ah_nr, d_bmi, tx_hla, tx_hvdis, tx_cit)
   
+  #Scaling variables as we did in the original dataset
+  simDs.id$rec_age_fwp1 = (simDs.id$rec_age_fwp1 - mean(amctx_merged$rec_age_fwp1))/sd(amctx_merged$rec_age_fwp1)
+  simDs.id$d_age = (simDs.id$d_age - mean(amctx_merged$d_age))/sd(amctx_merged$d_age)
+  simDs.id$rec_bmi = (simDs.id$rec_bmi - mean(amctx_merged$rec_bmi))/sd(amctx_merged$rec_bmi)
+  simDs.id$tx_dial_days = (simDs.id$tx_dial_days - mean(amctx_merged$tx_dial_days))/sd(amctx_merged$tx_dial_days)
+  simDs.id$tx_pra = (simDs.id$tx_pra - mean(amctx_merged$tx_pra))/sd(amctx_merged$tx_pra)
+  simDs.id$ah_nr = (simDs.id$ah_nr - mean(amctx_merged$ah_nr))/sd(amctx_merged$ah_nr)
+  simDs.id$d_bmi = (simDs.id$d_bmi - mean(amctx_merged$d_bmi))/sd(amctx_merged$d_bmi)
+  simDs.id$tx_hla = (simDs.id$tx_hla - mean(amctx_merged$tx_hla))/sd(amctx_merged$tx_hla)
+  simDs.id$tx_cit = (simDs.id$tx_cit - mean(amctx_merged$tx_cit))/sd(amctx_merged$tx_cit)
+  
   simDs = data.frame(simDs.id, tx_s_years = sort(longTimes))
   simDs = simDs[order(simDs$amctx, decreasing = F),]
   simDs$visitNumber = rep(1:timesPerSubject, nSub)
@@ -253,23 +269,6 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   
   stopCluster(ct)
   
-  print(paste("Percent reject", percentageRejected*100))
-  if(percentageRejected > 0.5){
-     stop(paste("Too many NA's sampled ", percentageRejected*100, "%", sep=""))
-  }
-  
-  pid_to_keep = simDs.id[!is.na(simDs.id$years_tx_gl),]$amctx
-  
-  simDs = simDs[simDs$amctx %in% pid_to_keep,]
-  simDs.id = simDs.id[simDs.id$amctx %in% pid_to_keep,]
-  b = b[pid_to_keep,]
-  wGamma = wGamma[pid_to_keep]
-  weibullShapes = weibullShapes[pid_to_keep]
-  weibullScales = weibullScales[pid_to_keep]
-  
-  simDs.id$amctx = 1:nrow(simDs.id)
-  simDs$amctx = rep(simDs.id$amctx, each=timesPerSubject)
-  
   #Divide into training and test
   trainingSize = round(nrow(simDs.id)*0.75)
   trainingDs.id = simDs.id[1:trainingSize, ]
@@ -277,17 +276,22 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   trainingDs = simDs[simDs$amctx %in% trainingDs.id$amctx, ]
   testDs = simDs[simDs$amctx %in% testDs.id$amctx, ]
   
+  testDs.id$gl_failure = !is.na(testDs.id$years_tx_gl)
+  testDs.id$years_tx_gl[is.na(testDs.id$years_tx_gl)] = 10
+  testDs$years_tx_gl = rep(testDs.id$years_tx_gl, each=timesPerSubject)
+  testDs$gl_failure = rep(testDs.id$gl_failure, each=timesPerSubject)
+  
   # simulate censoring times from an exponential distribution for TRAINING DATA SET ONLY
   # and calculate the observed event times, i.e., min(true event times, censoring times)
-  
   #Ctimes <- rexp(trainingSize, 1/mean(prias.id[prias.id$progressed==0,]$progression_time))
   Ctimes = runif(trainingSize, 0, 15)
   
-  trainingDs.id$gl_failure = trainingDs.id$years_tx_gl <= Ctimes
-  trainingDs.id$years_tx_gl = pmin(trainingDs.id$years_tx_gl, Ctimes)
+  trainingDs.id$gl_failure = !(is.na(trainingDs.id$years_tx_gl) | trainingDs.id$years_tx_gl > Ctimes)
+  trainingDs.id$years_tx_gl[!is.na(trainingDs.id$years_tx_gl)] = pmin(trainingDs.id$years_tx_gl[!is.na(trainingDs.id$years_tx_gl)], Ctimes[!is.na(trainingDs.id$years_tx_gl)])
+  trainingDs.id$years_tx_gl[is.na(trainingDs.id$years_tx_gl)] = pmin(10, Ctimes[is.na(trainingDs.id$years_tx_gl)])
+  
   trainingDs$years_tx_gl = rep(trainingDs.id$years_tx_gl, each=timesPerSubject)
   trainingDs$gl_failure = rep(trainingDs.id$gl_failure, each=timesPerSubject)
-  testDs$years_tx_gl = rep(testDs.id$years_tx_gl, each=timesPerSubject)
   
   # drop the longitudinal measurementsthat were taken after the observed event time for each subject.
   trainingDs = trainingDs[trainingDs$tx_s_years <= trainingDs$years_tx_gl, ]
@@ -304,6 +308,10 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
 
 
 rLogCreatinine =  function(patientId, time, mean=F){
+  simDs.id = simulatedDs$simDs.id
+  b_creatinine = simulatedDs$b
+  wGamma = simulatedDs$wGamma
+  
   df_s = data.frame(tx_s_years = time, simDs.id[patientId, ])
   
   xi_s_val_creatinine = model.matrix(fixedValueFormula_creatinine, df_s)
