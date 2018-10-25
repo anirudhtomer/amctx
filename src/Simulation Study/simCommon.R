@@ -235,6 +235,7 @@ generateSimLongitudinalData = function(nSub){
   
   xBetaZb_creatinine = X_creatinine %*% betas_creatinine + Zb_creatinine
   simDs$logCreatinine = rnorm(length(xBetaZb_creatinine), xBetaZb_creatinine, sigma.y_creatinine)
+  simDs$creatinine = exp(simDs$logCreatinine)
   
   W <- model.matrix(survivalFormula, data = simDs.id)[,-1] #drop the intercept
   wGamma <- as.vector(W %*% gammas)
@@ -257,7 +258,6 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   
   simDs.id$years_tx_gl = foreach(i=1:nSub,.combine='c', 
                                  .export=c("pSurvTime", "invSurvival", "hazardFunc", 
-                                           "weibullShapes", "weibullScales", 
                                            "fixedValueFormula_creatinine", "fixedSlopeFormula_creatinine",
                                            "randomValueFormula_creatinine", "randomSlopeFormula_creatinine",
                                            "betas_creatinine", "getAlphaCreatinine", "fittedJointModel"),
@@ -270,11 +270,10 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   stopCluster(ct)
   
   #Divide into training and test
-  trainingSize = round(nrow(simDs.id)*0.75)
-  trainingDs.id = simDs.id[1:trainingSize, ]
-  testDs.id = simDs.id[(trainingSize+1):nrow(simDs.id),]
-  trainingDs = simDs[simDs$amctx %in% trainingDs.id$amctx, ]
-  testDs = simDs[simDs$amctx %in% testDs.id$amctx, ]
+  trainingDs.id = simDs.id
+  testDs.id = simDs.id
+  trainingDs = simDs
+  testDs = simDs
   
   testDs.id$gl_failure = !is.na(testDs.id$years_tx_gl)
   testDs.id$years_tx_gl[is.na(testDs.id$years_tx_gl)] = 10
@@ -284,7 +283,7 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   # simulate censoring times from an exponential distribution for TRAINING DATA SET ONLY
   # and calculate the observed event times, i.e., min(true event times, censoring times)
   #Ctimes <- rexp(trainingSize, 1/mean(prias.id[prias.id$progressed==0,]$progression_time))
-  Ctimes = runif(trainingSize, 0, 15)
+  Ctimes = runif(nrow(trainingDs.id), 0, 15)
   
   trainingDs.id$gl_failure = !(is.na(trainingDs.id$years_tx_gl) | trainingDs.id$years_tx_gl > Ctimes)
   trainingDs.id$years_tx_gl[!is.na(trainingDs.id$years_tx_gl)] = pmin(trainingDs.id$years_tx_gl[!is.na(trainingDs.id$years_tx_gl)], Ctimes[!is.na(trainingDs.id$years_tx_gl)])
@@ -301,9 +300,7 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
   list(simDs = simDs, simDs.id = simDs.id, 
        trainingDs = trainingDs, trainingDs.id = trainingDs.id, 
        testDs = testDs, testDs.id = testDs.id, 
-       b=b, wGamma=wGamma, 
-       weibullShapes = weibullShapes, weibullScales = weibullScales,
-       percentageRejected = percentageRejected)
+       b=b, wGamma=wGamma)
 }
 
 

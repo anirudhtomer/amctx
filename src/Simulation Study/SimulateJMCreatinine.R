@@ -14,7 +14,7 @@ load("Rdata/joint models/mvJoint_creatinine_tdboth_complex.Rdata")
 source("src/Simulation Study/simCommon.R")
 
 set.seed(2018)
-nSub <- 1000
+nSub <- 239
 
 simulatedDs = generateSimLongitudinalData(nSub)
 simulatedDs = generateSimJointData(nSub, simulatedDs$simDs, simulatedDs$simDs.id,
@@ -26,21 +26,16 @@ graphdf = data.frame(failtime = c(amctx.id$years_tx_gl, simulatedDs$trainingDs.i
 
 ggplot(data=graphdf) + geom_density(aes(x=failtime, fill = type), alpha=0.5) + facet_grid(.~indicator)
 
-weibullScales = simulatedDs$weibullScales
-weibullShapes = simulatedDs$weibullShapes
-
 trainingDs = simulatedDs$trainingDs
 trainingDs.id = simulatedDs$trainingDs.id
 testDs = simulatedDs$testDs
 testDs.id = simulatedDs$testDs.id
-testDs.id$gl_failure = 1
 
 simDs = simulatedDs$simDs
 simDs.id = simulatedDs$simDs.id
 b_creatinine = simulatedDs$b
 wGamma = simulatedDs$wGamma
 
-rm(simulatedDs)
 trainingDs$creatinine = exp(trainingDs$logCreatinine)
 testDs$creatinine = exp(testDs$logCreatinine)
 
@@ -70,7 +65,8 @@ forms_creatinine_training <- list("log(creatinine)" = "value",
 
 mvJoint_creatinine_tdboth_training = mvJointModelBayes(mvglmer_creatinine_training, cox_Model_training, timeVar = "tx_s_years",
                                                        Formulas = forms_creatinine_training,
-                                                       priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE))
+                                                       priors = list(shrink_gammas = TRUE, shrink_alphas = TRUE),
+                                                       control = list(n_cores = 1))
 
 ###########################################
 #Also fit joint model using the jointModelAPI
@@ -93,6 +89,6 @@ jmbayes_creatinine_tdboth_training = jointModelBayes(lme_creatinine_training, pa
                                                              indFixed = c(18:21), indRandom = 2:5))
 
 simJointModel_replaced = replaceMCMCContents(mvJoint_creatinine_tdboth_training, jmbayes_creatinine_tdboth_training)
-save.image("Rdata/simCreatinine.Rdata")
+save.image("Rdata/simCreatinine_2018.Rdata")
 
 

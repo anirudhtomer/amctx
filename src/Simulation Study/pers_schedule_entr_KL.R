@@ -1,5 +1,5 @@
-source("src/R/Simulation Study/utilFunctions/dynInfoPar.R")
-source("src/R/Simulation Study/utilFunctions/dynInfo_mod.R")
+source("src/Simulation Study/utilFunctions/dynInfoPar.R")
+#source("src/Simulation Study/utilFunctions/dynInfo_mod.R")
 
 invDynSurvLastTime <- function (lasttime, u, patientDs, maxRiskDt) {
   u - round(survfitJM(simJointModel_replaced, patientDs, idVar="amctx", last.time = lasttime, survTimes = lasttime + maxRiskDt)$summaries[[1]][1, "Median"], 4)
@@ -39,7 +39,7 @@ pDynSurvTime = function(survProb, patientDs, lasttime=NULL){
   if(!is.null(lasttime)){
     Low = lasttime + 1e-05
   }
-  Up <- 20
+  Up <- 10
   tries  = 0
   
   repeat{
@@ -48,11 +48,7 @@ pDynSurvTime = function(survProb, patientDs, lasttime=NULL){
                         u = survProb, patientDs = patientDs, lasttime = lasttime)$root, TRUE)
     
     if(inherits(Root, "try-error")){
-      if(tries >= 40){
-        return(NA)
-      }else{
-        Up = Up + 0.25    
-      }
+      return(10 - maxRiskDt)
     }else{
       return(Root)
     }
@@ -69,33 +65,38 @@ pDynSurvTime = function(survProb, patientDs, lasttime=NULL){
 ct = makeCluster(detectCores())
 registerDoParallel(ct)
 
+maxRiskDt = 0.5
+maxRisk = 0.05
+minSurv = 1 - maxRisk
+
 for(minFixedMeasurements in c(6)){
   
-  for(methodName in c("dynInfo_mod")){
-    #for(methodName in c("dynInfoPar")){
+  #for(methodName in c("dynInfo_mod")){
+  for(methodName in c("dynInfoPar")){
     
     dynInfoMethod = get(methodName)
     
     persTestDs = simDs[simDs$visitNumber <= minFixedMeasurements & 
-                         simDs$amctx %in% simTestDs.id$amctx,]
+                         simDs$amctx %in% testDs.id$amctx,]
     persTestDs$creatinine = exp(persTestDs$logCreatinine)
     patientDsList = split(persTestDs, persTestDs$amctx)
     
     for(i in 1:length(patientDsList)){
       patientId = patientDsList[[i]]$amctx[1]
-      trueStopTime = simTestDs.id$stoptime_True[simTestDs.id$amctx == patientId]
+      trueStopTime = testDs.id$stoptime_True[testDs.id$amctx == patientId]
       
       print(paste(patientId, "---", trueStopTime))
       
       repeat{
         lastVisitTime = max(patientDsList[[i]]$tx_s_years)
         
-        if(lastVisitTime > 10){
+        if(lastVisitTime + maxRiskDt > 10){
           print("Last visit time > 10; breaking out")
+          break
         }
         
         dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
-                                  survTimes = lastVisitTime + maxRiskDt)$summaries[[1]][1, "Median"]
+                                  survTimes = lastVisitTime + maxRiskDt)$summaries[[1]][1, "Mean"]
         
         if(dynSurvProbDt <= minSurv){
           checkFP = c(F,F,F)
@@ -106,7 +107,7 @@ for(minFixedMeasurements in c(6)){
             newRow$creatinine = exp(newRow$logCreatinine)
             patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
             dynSurvProbDt = survfitJM(simJointModel_replaced, patientDsList[[i]], idVar="amctx", 
-                                      survTimes = max(patientDsList[[i]]$tx_s_years) + maxRiskDt)$summaries[[1]][1, "Median"] 
+                                      survTimes = max(patientDsList[[i]]$tx_s_years) + maxRiskDt)$summaries[[1]][1, "Mean"] 
             
             checkFP[ttt] = dynSurvProbDt <= minSurv
             if(checkFP[ttt] == F){
@@ -140,7 +141,7 @@ for(minFixedMeasurements in c(6)){
           break
         }
         
-        dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K =lengthout, seed = 4001, idVar="amctx")
+        dynInfoRes = dynInfoMethod(simJointModel_replaced, newdata = patientDsList[[i]], Dt = maxInfoDt, K =lengthout, seed = 2018, idVar="amctx")
         info = dynInfoRes$summary$Info
         
         ###########Technique 1a
@@ -156,6 +157,7 @@ for(minFixedMeasurements in c(6)){
         patientDsList[[i]] = rbind(patientDsList[[i]], newRow)
         print(paste("Step", newTime))
       }
+      
       print("Next Patient")
       save(patientDsList, file = paste("Rdata/u1_", methodName, "_6mo_nFix_", minFixedMeasurements, "_risk_", maxRisk*100,"_k15.Rdata", sep=""))
     }
