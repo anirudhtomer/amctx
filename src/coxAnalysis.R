@@ -27,16 +27,16 @@ nrisk = plotdf$n.risk[timeIndices]
 
 ggplot(data=plotdf) + geom_line(aes(x=time, y=surv)) +
   geom_ribbon(aes(x=time, ymin=lower, ymax=upper),fill = "grey", alpha=0.6) +
-  scale_y_continuous(breaks=seq(0,1,0.1),limits = c(0,1)) + 
-  scale_x_continuous(breaks = seq(0,12,1), limits=c(0,12)) + 
+  scale_y_continuous(breaks=seq(0,1,0.25),limits = c(0,1)) + 
+  scale_x_continuous(breaks = seq(0,10,2), limits=c(0,10)) + 
   geom_hline(yintercept = 0) + geom_vline(xintercept = 0) +
-  geom_segment(aes(x = 0, y = 0.1, xend=12, yend = 0.1)) + 
+  geom_segment(aes(x = 0, y = 0.1, xend=10, yend = 0.1)) + theme_bw() + 
   annotate("text",x=6, y=0.13, size=4.5, label="Number of at-risk patients") +
   annotate("text", x = nrisktimes, y = 0.05, label = paste(nrisk)) +
   theme(text = element_text(size=13), axis.text=element_text(size=13)) + 
-  ylab("Survival Probability") + xlab("Time (years)")
+  ylab("Survival probability (%)") + xlab("Time after transplantation (years)")
 
-ggsave(filename = "report/hessel/images/km.eps", width=8.27, height=9.69/2, device=cairo_ps)
+ggsave(filename = "report/hessel/images/new_2018/km.eps", device=cairo_ps)
 
 modelNull = coxph(Surv(days_tx_gl, gl_failure) ~ 1,
                   data = amctx.id)

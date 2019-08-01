@@ -1,102 +1,88 @@
-#############################################
-#Load the results from Rdata files, 6 months 5% risk
-#############################################
-simTestDs.id$diff_fixed_new = simTestDs.id$stopTime_fixed_new - simTestDs.id$stoptime_True
+startCol = which(colnames(testDs.id)=="nObs_fixed_pt05")
+testDs.id_long=reshape(testDs.id, direction='long', idvar='amctx', timevar = "methodNumber",
+                          varying=list(seq(startCol, ncol(testDs.id), 2), 
+                                       seq(startCol+1, ncol(testDs.id), 2)),
+                          v.names=c('nObs', 'stopTime'))
+testDs.id_long = testDs.id_long[order(testDs.id_long$amctx, testDs.id_long$methodNumber, na.last = T), ]
+testDs.id_long$offset_fail = testDs.id_long$years_tx_gl - testDs.id_long$stopTime
 
-dir = "Rdata/new/pt05risk/"
-i = 1
+testDs.id_long$methodName = factor(testDs.id_long$methodNumber, 
+                                      labels =  c("Fixed_pt05", "Personalized_pt05", "Fixed_pt025", "Personalized_pt025"))
 
-#Index is 1 for both 2.5% and 5% risk
-fileNames = list.files(path = dir)[1]
-for(rdataname in fileNames){
-  load(paste(dir, rdataname, sep=""))
-  
-  simTestDs.id[,paste("nObs_",i, sep="")] = sapply(patientDsList, nrow)
-  simTestDs.id[,paste("stopTime_",i, sep="")] = sapply(patientDsList, function(x){max(x$tx_s_years)})
-  simTestDs.id[,paste("diff_",i, sep="")] = simTestDs.id[,paste("stopTime_",i, sep="")] - simTestDs.id$stoptime_True 
-  
-  i = i + 1
-}
+FONT_SIZE = 14
 
-startCol = which(colnames(simTestDs.id)=="nObs_fixed_new")
-simTestDs.id_long=reshape(simTestDs.id, direction='long', idvar='amctx', timevar = "methodNumber",
-                          varying=list(seq(startCol, ncol(simTestDs.id), 3), 
-                                       seq(startCol+1, ncol(simTestDs.id), 3),
-                                       seq(startCol+2, ncol(simTestDs.id), 3)),
-                          v.names=c('nObs', 'stopTime', 'offset'))
-simTestDs.id_long = simTestDs.id_long[order(simTestDs.id_long$amctx, simTestDs.id_long$methodNumber, na.last = T), ]
-simTestDs.id_long$offset_fail = simTestDs.id_long$stopTime - simTestDs.id_long$years_tx_gl
+pt05_nObs_glT = ggplot(data=testDs.id_long[testDs.id_long$methodName %in% c("Fixed_pt05", "Personalized_pt05") & testDs.id_long$gl_failure==T,]) + 
+  geom_boxplot(aes(methodName, nObs), outlier.shape = NA) + scale_y_continuous(breaks = seq(0, 70, 15), limits = c(0, 70)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) +
+  xlab("Schedule") + ylab("Nr. of creatinine measurements") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), plot.title = element_text(size=FONT_SIZE)) + coord_flip() +
+  ggtitle("For (54%) patients who observe \ngraft failure")
 
-simTestDs.id_long$methodName = factor(simTestDs.id_long$methodNumber, 
-                                      labels =  c("Fixed", paste(1:length(fileNames))))
-simTestDs.id_long$methodName = factor(simTestDs.id_long$methodNumber, 
-                                      labels =  c("Fixed", "Personalized"))
+pt05_offset_glT = ggplot(data=testDs.id_long[testDs.id_long$methodName %in% c("Fixed_pt05", "Personalized_pt05") & testDs.id_long$gl_failure==T,]) + 
+  geom_boxplot(aes(methodName, offset_fail), outlier.shape = NA) + 
+  scale_y_continuous(breaks = c(0,seq(-10, 8, 4)), limits = c(-10, 8)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) + coord_flip() +
+  xlab("Schedule") + ylab("Time available for \nproactive treatment (years)") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(), axis.text.y = element_blank()) 
 
-################# In depth comparison Fixed vs Pers
-betterPers_2Obs = simTestDs.id$amctx[simTestDs.id$nObs_fixed_new > simTestDs.id$nObs_1]
-betterPers_8Obs = simTestDs.id$amctx[simTestDs.id$nObs_fixed_new > simTestDs.id$nObs_2]
-better_Fixed_2Obs = simTestDs.id$amctx[simTestDs.id$nObs_fixed_new <= simTestDs.id$nObs_1]
-better_Fixed_8Obs = simTestDs.id$amctx[simTestDs.id$nObs_fixed_new <= simTestDs.id$nObs_2]
+pt05_nObs_glF = ggplot(data=testDs.id_long[testDs.id_long$methodName %in% c("Fixed_pt05", "Personalized_pt05") & testDs.id_long$gl_failure==F,]) + 
+  geom_boxplot(aes(methodName, nObs), outlier.shape = NA) + scale_y_continuous(breaks = seq(0, 70, 15), limits = c(0, 70)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) +
+  xlab("Schedule") + ylab("Nr. of creatinine measurements") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), plot.title = element_text(size=FONT_SIZE)) + coord_flip() +
+  ggtitle("For (46%) patients who are \nright censored")
 
-betterPers_2offset = simTestDs.id$amctx[simTestDs.id$diff_fixed_new > simTestDs.id$diff_1]
-betterPers_8offset= simTestDs.id$amctx[simTestDs.id$diff_fixed_new > simTestDs.id$diff_2]
-better_Fixed_2offset = simTestDs.id$amctx[simTestDs.id$diff_fixed_new <= simTestDs.id$diff_1]
-better_Fixed_8offset = simTestDs.id$amctx[simTestDs.id$diff_fixed_new <= simTestDs.id$diff_2]
+pt05_offset_glF = ggplot() + 
+  geom_text(aes(x=1, y=-1), size=4,
+            label="These patients are right censored\n at the 10 year follow-up period mark. \n \nTime available for proactive treatment \ncannot be calculated due to right censoring.") + 
+  scale_y_continuous(breaks = c(0,seq(-10, 8, 4)), limits = c(-10, 8)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) +
+  xlab("Schedule") + ylab("Time available for \nproactive treatment (years)") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(), axis.text.y = element_blank(), panel.grid = element_blank())+ coord_flip()
 
-temp = simTestDs.id_long
-temp = simTestDs.id_long[simTestDs.id_long$amctx %in% betterPers_8Obs,]
+combined_plot_pt05 = ggpubr::ggarrange(ggpubr::ggarrange(pt05_nObs_glT, pt05_offset_glT, widths = c(1.275,1), align = "h"),
+                                       ggpubr::ggarrange(pt05_nObs_glF, pt05_offset_glF, widths = c(1.275,1), align = "h"),
+                                       ncol = 1, nrow=2, labels = "AUTO")
+ggsave(combined_plot_pt05, filename = "report/hessel/images/new_2018/combined_plot_pt05.eps",
+       width=8, height=7)
 
-summaryDs = data.frame(matrix(nrow=max(temp$methodNumber), ncol=4))
-rownames(summaryDs) = levels(temp$methodName)
-colnames(summaryDs) = c("methodName", "nObs", "abs_offset", "abs_offset_fail")
-summaryDs$methodName = levels(temp$methodName)
-summaryDs$nObs = c(by(temp$nObs, temp$methodName, median, na.rm=T))
-summaryDs$abs_offset = c(by(abs(temp$offset), temp$methodName, median, na.rm=T))
-summaryDs$abs_offset_fail = c(by(abs(temp$offset_fail), temp$methodName, median, na.rm=T))
+#######################
 
-#ggplot(data=simTestDs.id[simTestDs.id$amctx %in% better_Fixed_2offset,]) + 
-#  geom_boxplot(aes(x="", y=stoptime_True*12))
-  
-ggplot(data=summaryDs, aes(nObs, abs_offset * 12, label = methodName)) + 
-  geom_label(size=4.5, nudge_y = -0.25) + geom_point() + 
-  xlab("Median Number of observations") + ylab("Median |Stop Time - True threshold time| (months)") +
-  scale_x_continuous(breaks = seq(0, ceiling(max(summaryDs$nObs)) + 5, 5), limits = c(0,ceiling(max(summaryDs$nObs)) + 5)) +
-  scale_y_continuous(breaks = seq(0, max(summaryDs$abs_offset)*12 + 1, 1), limits = c(0,max(summaryDs$abs_offset)*12 + 1)) + 
-  theme(text = element_text(size=12), axis.text=element_text(size=12))
-  
-ggplot(data=summaryDs, aes(nObs, abs_offset_fail * 12, label = methodName)) + 
-  geom_label(size=4.5, nudge_y = -1) + geom_point() +
-  xlab("Median Number of observations") + ylab("Median |Stop Time - True failure time| (months)") +
-  scale_x_continuous(breaks = seq(0, ceiling(max(summaryDs$nObs)) + 5, 5), limits = c(0,ceiling(max(summaryDs$nObs)) + 5)) +
-  scale_y_continuous(breaks = seq(0, max(summaryDs$abs_offset_fail)*12 + 1, 5), limits = c(0, max(summaryDs$abs_offset_fail)*12 + 1)) + 
-  theme(text = element_text(size=12), axis.text=element_text(size=12))
+pt025_nObs_glT = ggplot(data=testDs.id_long[testDs.id_long$methodName %in% c("Fixed_pt025", "Personalized_pt025") & testDs.id_long$gl_failure==T,]) + 
+  geom_boxplot(aes(methodName, nObs), outlier.shape = NA) + scale_y_continuous(breaks = seq(0, 70, 15), limits = c(0, 70)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) +
+  xlab("Schedule") + ylab("Nr. of creatinine measurements") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), plot.title = element_text(size=FONT_SIZE)) + coord_flip() +
+  ggtitle("For (54%) patients who observe \ngraft failure")
 
-a = ggplot(data=temp) +   
-  geom_boxplot(aes(methodName, offset_fail*12), outlier.shape = NA) + 
-  xlab("Method") + ylab("Failure offset (months)") + 
-  theme(text = element_text(size=13), axis.text=element_text(size=13)) +
-  geom_hline(yintercept=0, linetype="dashed") + scale_y_continuous(breaks = seq(-200, 200, 15)) +
-  coord_cartesian(ylim= c(-125,15))
-plot(a)
-ggsave(filename = "report/hessel/images/truestoptimept025.eps", width=8.27, height=9.69/2, device=cairo_ps)
+pt025_offset_glT = ggplot(data=testDs.id_long[testDs.id_long$methodName %in% c("Fixed_pt025", "Personalized_pt025") & testDs.id_long$gl_failure==T,]) + 
+  geom_boxplot(aes(methodName, offset_fail), outlier.shape = NA) + 
+  scale_y_continuous(breaks = c(0,seq(-6, 10, 4)), limits = c(-6, 10)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) + coord_flip() +
+  xlab("Schedule") + ylab("Time available for \nproactive treatment (years)") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(), axis.text.y = element_blank()) 
 
-b = ggplot(data=temp) + 
-  geom_boxplot(aes(methodName, offset*12), outlier.shape = NA) + 
-  scale_y_continuous(breaks = seq(-16, 12.5, 2)) + 
-  coord_cartesian(ylim= c(-16,12.5)) +
-  xlab("Method") + ylab("Intervention offset (months)") + 
-  theme(text = element_text(size=13), axis.text=element_text(size=13)) +
-  geom_hline(yintercept=0, linetype="dashed")
-plot(b)
-ggsave(filename = "report/hessel/images/truethrestimept025.eps", width=8.27, height=9.69/2, device=cairo_ps)
+pt025_nObs_glF = ggplot(data=testDs.id_long[testDs.id_long$methodName %in% c("Fixed_pt025", "Personalized_pt025") & testDs.id_long$gl_failure==F,]) + 
+  geom_boxplot(aes(methodName, nObs), outlier.shape = NA) + scale_y_continuous(breaks = seq(0, 70, 15), limits = c(0, 70)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) +
+  xlab("Schedule") + ylab("Nr. of creatinine measurements") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), plot.title = element_text(size=FONT_SIZE)) + coord_flip() +
+  ggtitle("For (46%) patients who are \nright censored")
 
-c = ggplot(data=temp) + 
-  geom_boxplot(aes(methodName, nObs), outlier.shape = NA) + 
-  scale_y_continuous(breaks=seq(3, max(temp$nObs), by = 3)) +
-  coord_cartesian(ylim= c(3,max(temp$nObs))) +
-  xlab("Schedule") + ylab("Number of measurements") + 
-  theme(text = element_text(size=13), axis.text=element_text(size=13)) 
-plot(c)
+pt025_offset_glF = ggplot() + 
+  geom_text(aes(x=1, y=2), size=4,
+            label="These patients are right censored\n at the 10 year follow-up period mark. \n \nTime available for proactive treatment \ncannot be calculated due to right censoring.") + 
+  scale_y_continuous(breaks = c(0,seq(-6, 10, 4)), limits = c(-6, 10)) + 
+  scale_x_discrete(labels=c("Fixed", "Personalized")) +
+  xlab("Schedule") + ylab("Time available for \nproactive treatment (years)") + theme_bw() + 
+  theme(text = element_text(size = FONT_SIZE), axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(), axis.text.y = element_blank(), panel.grid = element_blank())+ coord_flip()
 
-ggsave(filename = "report/hessel/images/nObspt025.eps", width=8.27, height=9.69/2, device=cairo_ps)
-
+combined_plot_pt025 = ggpubr::ggarrange(ggpubr::ggarrange(pt025_nObs_glT, pt025_offset_glT, widths = c(1.275,1), align = "h"),
+                                       ggpubr::ggarrange(pt025_nObs_glF, pt025_offset_glF, widths = c(1.275,1), align = "h"),
+                                       ncol = 1, nrow=2, labels = "AUTO")
+ggsave(combined_plot_pt025, filename = "report/hessel/images/new_2018/combined_plot_pt025.eps",
+       width=8, height=7)

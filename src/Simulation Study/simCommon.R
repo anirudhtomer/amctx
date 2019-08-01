@@ -93,7 +93,7 @@ getBsGammas = function(jointModel, weightedOnes = T){
   }
 }
 
-hazardFunc = function (s, patientId, simDs.id_i, wGamma_i, b_i) {
+hazardFunc = function (s, patientId, simDs.id_i, wGamma_i, b_i, noBaseline=F) {
   baselinehazard_s = exp(splineDesign(fittedJointModel$control$knots, s, 
                                     ord = fittedJointModel$control$ordSpline, outer.ok = T) %*% fittedJointModel$statistics$postMeans$Bs_gammas)
   
@@ -116,15 +116,19 @@ hazardFunc = function (s, patientId, simDs.id_i, wGamma_i, b_i) {
     #
   #y_Alpha_creatinine = cbind(xBetaZb_s_value_creatinine) %*% getAlphaCreatinine(fittedJointModel, weightedOnes = T)
   
-  baselinehazard_s * exp(wGamma_i + y_Alpha_creatinine)
+  if(noBaseline==T){
+    return(exp(wGamma_i + y_Alpha_creatinine))
+  }else{
+    baselinehazard_s * exp(wGamma_i + y_Alpha_creatinine)
+  }
 }
 
 
 survivalFunc <- function (t, i, simDs.id_i, wGamma_i, b_i) {
-  exp(-integrate(hazardFunc, lower = 0.01, upper = t, i, simDs.id_i, wGamma_i, b_i)$value)
+  exp(-integrate(hazardFunc, lower = 0.01, upper = t, i, simDs.id_i, wGamma_i, b_i, stop.on.error = F)$value)
 }
 
-invSurvival <- function (t, u, i, simDs.id_i, wGamma_i, b_i) {
+invSurvival <- function (t, u, i, s0imDs.id_i, wGamma_i, b_i) {
   integrate(hazardFunc, lower = 0.01, upper = t, i, simDs.id_i, wGamma_i, b_i)$value + log(u)
 }
 
@@ -307,7 +311,6 @@ generateSimJointData = function(nSub, simDs, simDs.id, b, wGamma){
 rLogCreatinine =  function(patientId, time, mean=F){
   simDs.id = simulatedDs$simDs.id
   b_creatinine = simulatedDs$b
-  wGamma = simulatedDs$wGamma
   
   df_s = data.frame(tx_s_years = time, simDs.id[patientId, ])
   
@@ -321,6 +324,20 @@ rLogCreatinine =  function(patientId, time, mean=F){
   }else{
     return(sapply(xBetaZb_s_value_creatinine, rnorm, n=1, sigma.y_creatinine)) 
   }
+}
+
+trueLogCreatinineVelocity =  function(patientId, time){
+  simDs.id = simulatedDs$simDs.id
+  b_creatinine = simulatedDs$b
+  
+  df_s = data.frame(tx_s_years = time, simDs.id[patientId, ])
+  
+  xi_s_val_creatinine = model.matrix(fixedSlopeFormula_creatinine, df_s)
+  zi_s_val_creatinine = model.matrix(randomSlopeFormula_creatinine, df_s)
+  zib_val_creatinine = zi_s_val_creatinine %*% b_creatinine[patientId, -1]
+  xBetaZb_s_value_creatinine = xi_s_val_creatinine %*% betas_creatinine[18:21] + zib_val_creatinine
+  
+  return(xBetaZb_s_value_creatinine)
 }
 
 timesPerSubject = length(generateLongtiudinalTimeBySchedule())
